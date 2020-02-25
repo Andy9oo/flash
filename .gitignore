@@ -1,0 +1,16 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Folders containing binaries
+bin
+pkg
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
