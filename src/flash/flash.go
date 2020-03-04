@@ -1,7 +1,22 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"importer"
+	"log"
+	"os"
+	"path/filepath"
+)
 
 func main() {
-	fmt.Println("Hello, world!")
+	file, err := filepath.Abs(os.Args[1])
+	if err != nil {
+		log.Fatal("Could not get absolute path for", os.Args[1])
+	}
+
+	channel := importer.GetTextChannel(file)
+
+	for line := range channel {
+		fmt.Println(line)
+	}
 }
