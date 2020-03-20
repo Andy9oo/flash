@@ -1,8 +1,8 @@
 package main
 
 import (
+	"flash/src/utils/importer"
 	"fmt"
-	"importer"
 	"log"
 	"os"
 	"path/filepath"
