@@ -27,6 +27,7 @@ func getText(filepath string, c chan string) {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanWords)
 	for scanner.Scan() {
 		c <- scanner.Text()
 	}

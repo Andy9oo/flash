@@ -1,22 +1,18 @@
 package main
 
 import (
-	"flash/src/utils/importer"
-	"fmt"
+	"flash/src/utils/indexer"
 	"log"
 	"os"
 	"path/filepath"
 )
 
 func main() {
-	file, err := filepath.Abs(os.Args[1])
+	path, err := filepath.Abs(os.Args[1])
 	if err != nil {
-		log.Fatal("Could not get absolute path for", os.Args[1])
+		log.Fatal("Could not get filepath")
 	}
 
-	channel := importer.GetTextChannel(file)
-
-	for line := range channel {
-		fmt.Println(line)
-	}
+	index := indexer.BuildIndex(path)
+	index.Save(".index")
 }
