@@ -14,3 +14,5 @@ pkg
 
 # Output of the go coverage tool
 *.out
+
+*.txt
