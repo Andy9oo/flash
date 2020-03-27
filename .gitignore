@@ -15,4 +15,6 @@ pkg
 # Output of the go coverage tool
 *.out
 
+# Ignore index files
+*.index
 *.txt
