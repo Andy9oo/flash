@@ -13,6 +13,5 @@ func main() {
 		log.Fatal("Could not get filepath")
 	}
 
-	index := indexer.BuildIndex(path)
-	index.Save(".index")
+	indexer.BuildIndex(path)
 }

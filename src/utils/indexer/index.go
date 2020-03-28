@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -38,6 +39,36 @@ func NewIndex(root string, memLimit int, partitionNumber int) *Index {
 	return &index
 }
 
+func (i *Index) indexDirectory(dir string) {
+	docID := 0
+	visit := func(path string, info os.FileInfo, err error) error {
+		if info.Name()[0:1] == "." {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+
+			return nil
+		}
+
+		if info.Mode().IsRegular() {
+			i.Add(path, docID)
+			docID++
+		}
+
+		return nil
+	}
+
+	err := filepath.Walk(dir, visit)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// Write remaining entries to a partition file
+	if i.memoryConsumption > 0 {
+		i.createIndexParition()
+	}
+}
+
 // Add inserts a doument into the index
 func (i *Index) Add(path string, docID int) {
 	textChannel := importer.GetTextChannel(path)
@@ -62,12 +93,13 @@ func (i *Index) Add(path string, docID int) {
 
 		if i.memoryConsumption > i.memoryLimit {
 			i.createIndexParition()
+			i.reset(i.partitionNumber + 1)
 		}
 	}
 }
 
 func (i *Index) createIndexParition() {
-	partitionPath := fmt.Sprintf("%v/.index/partition_%d", i.RootDir, i.partitionNumber)
+	partitionPath := fmt.Sprintf("%v/.index/p%d.index", i.RootDir, i.partitionNumber)
 
 	f, err := os.Create(partitionPath)
 	if err != nil {
@@ -86,13 +118,14 @@ func (i *Index) createIndexParition() {
 
 	var buf bytes.Buffer
 	for _, key := range keys {
-		buf.WriteString(fmt.Sprintf("%v:%v", key, i.Index[key].String()))
+		buf.WriteString(fmt.Sprintf("%v:%v\n", key, i.Index[key].String()))
 	}
 
 	f.Write(buf.Bytes())
-	i.partitionNumber++
+}
 
-	i = NewIndex(i.RootDir, i.memoryLimit, i.partitionNumber)
+func (i *Index) reset(partitionNumber int) {
+	*i = *NewIndex(i.RootDir, i.memoryLimit, partitionNumber)
 }
 
 // Save saves index into the give file
