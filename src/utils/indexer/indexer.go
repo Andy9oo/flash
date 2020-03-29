@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"encoding/gob"
 	"fmt"
 	"log"
 	"os"
@@ -14,10 +13,7 @@ func BuildIndex(dir string) *Index {
 		log.Fatal("Could not create index directory")
 	}
 
-	index := NewIndex(dir, 1e6, 0)
-	index.indexDirectory(dir)
-
-	return index
+	return NewIndex(dir)
 }
 
 func createIndexDir(root string) error {
@@ -30,24 +26,4 @@ func createIndexDir(root string) error {
 
 	err = os.Mkdir(indexDir, 0755)
 	return err
-}
-
-// LoadIndex reads an index in from a file
-func LoadIndex(path string) *Index {
-	f, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer f.Close()
-
-	var i Index
-
-	decoder := gob.NewDecoder(f)
-	err = decoder.Decode(&i)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	return &i
 }
