@@ -67,6 +67,8 @@ func (i *Index) addDir(dir string) {
 	if len(i.documentList) > 0 {
 		i.writeDocList()
 	}
+
+	mergePartitions(dir, partition.partitionNumber+1)
 }
 
 func (i *Index) addToDocList(docID uint32, path string) {

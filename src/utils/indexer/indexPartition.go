@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"flash/src/utils/importer"
@@ -16,6 +17,12 @@ type indexPartition struct {
 	partitionNumber uint32
 	dictionary      map[string]*postingList
 	memoryUsage     uint32
+}
+
+type partitionReader struct {
+	scanner     *bufio.Scanner
+	currentTerm string
+	done        bool
 }
 
 // newIndexPartition creates a new index partition with the given partition number
@@ -106,7 +113,7 @@ func mergePartitions(root string, numPartitions uint32) {
 
 	defer f.Close()
 
-	partitionFiles := make([]*os.File, numPartitions)
+	readers := make([]*partitionReader, numPartitions)
 	for i := uint32(0); i < numPartitions; i++ {
 		partitionPath := fmt.Sprintf("%v/.index/p%d.index", root, i)
 
@@ -116,14 +123,58 @@ func mergePartitions(root string, numPartitions uint32) {
 			continue
 		}
 
-		partitionFiles[i] = temp
+		scanner := bufio.NewScanner(temp)
+		scanner.Split(bufio.ScanLines)
+		scanner.Scan()
+
+		readers[i] = &partitionReader{
+			scanner:     scanner,
+			currentTerm: scanner.Text(),
+			done:        false,
+		}
 	}
 
-	currentPartition := partitionFiles[0]
-	for currentPartition != nil {
-		currentPartition = nil
+	currentIndex := readers[0]
+	var currentTerm string
+	var prevTerm string
+	for currentIndex != nil {
+		currentIndex = nil
 		for i := uint32(0); i < numPartitions; i++ {
-
+			if !readers[i].done {
+				if currentIndex == nil || strings.Compare(readers[i].currentTerm, currentTerm) == -1 {
+					currentIndex = readers[i]
+					currentTerm = readers[i].currentTerm
+				}
+			}
 		}
+
+		if currentIndex != nil {
+			currentIndex.scanner.Scan()
+			postings := currentIndex.scanner.Bytes()
+
+			buf := new(bytes.Buffer)
+
+			if currentTerm != prevTerm {
+				binary.Write(buf, binary.LittleEndian, []byte("\n"))
+				binary.Write(buf, binary.LittleEndian, []byte(currentTerm))
+				binary.Write(buf, binary.LittleEndian, []byte("\n"))
+				prevTerm = currentTerm
+			}
+
+			binary.Write(buf, binary.LittleEndian, postings)
+
+			buf.WriteTo(f)
+
+			if currentIndex.scanner.Scan() {
+				currentIndex.currentTerm = currentIndex.scanner.Text()
+			} else {
+				currentIndex.done = true
+			}
+		}
+	}
+
+	for i := uint32(0); i < numPartitions; i++ {
+		partitionPath := fmt.Sprintf("%v/.index/p%d.index", root, i)
+		os.Remove(partitionPath)
 	}
 }
