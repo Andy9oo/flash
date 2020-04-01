@@ -20,6 +20,7 @@ type indexPartition struct {
 }
 
 type partitionReader struct {
+	file        *os.File
 	scanner     *bufio.Scanner
 	currentTerm string
 	done        bool
@@ -110,29 +111,9 @@ func mergePartitions(root string, numPartitions uint32) {
 	if err != nil {
 		log.Fatal("Could not create index partition")
 	}
-
 	defer f.Close()
 
-	readers := make([]*partitionReader, numPartitions)
-	for i := uint32(0); i < numPartitions; i++ {
-		partitionPath := fmt.Sprintf("%v/.index/p%d.index", root, i)
-
-		temp, err := os.Open(partitionPath)
-		if err != nil {
-			fmt.Printf("Could not open file: %v\n", partitionPath)
-			continue
-		}
-
-		scanner := bufio.NewScanner(temp)
-		scanner.Split(bufio.ScanLines)
-		scanner.Scan()
-
-		readers[i] = &partitionReader{
-			scanner:     scanner,
-			currentTerm: scanner.Text(),
-			done:        false,
-		}
-	}
+	readers := openPartitionReaders(root, numPartitions)
 
 	currentIndex := readers[0]
 	var currentTerm string
@@ -158,21 +139,50 @@ func mergePartitions(root string, numPartitions uint32) {
 				binary.Write(buf, binary.LittleEndian, []byte("\n"))
 				binary.Write(buf, binary.LittleEndian, []byte(currentTerm))
 				binary.Write(buf, binary.LittleEndian, []byte("\n"))
-				prevTerm = currentTerm
 			}
 
 			binary.Write(buf, binary.LittleEndian, postings)
-
 			buf.WriteTo(f)
 
 			if currentIndex.scanner.Scan() {
 				currentIndex.currentTerm = currentIndex.scanner.Text()
 			} else {
 				currentIndex.done = true
+				currentIndex.file.Close()
 			}
 		}
 	}
 
+	deletePartitionFiles(root, numPartitions)
+}
+
+func openPartitionReaders(root string, numPartitions uint32) []*partitionReader {
+	readers := make([]*partitionReader, numPartitions)
+	for i := uint32(0); i < numPartitions; i++ {
+		partitionPath := fmt.Sprintf("%v/.index/p%d.index", root, i)
+
+		temp, err := os.Open(partitionPath)
+		if err != nil {
+			fmt.Printf("Could not open file: %v\n", partitionPath)
+			continue
+		}
+
+		scanner := bufio.NewScanner(temp)
+		scanner.Split(bufio.ScanLines)
+		scanner.Scan()
+
+		readers[i] = &partitionReader{
+			file:        temp,
+			scanner:     scanner,
+			currentTerm: scanner.Text(),
+			done:        false,
+		}
+	}
+
+	return readers
+}
+
+func deletePartitionFiles(root string, numPartitions uint32) {
 	for i := uint32(0); i < numPartitions; i++ {
 		partitionPath := fmt.Sprintf("%v/.index/p%d.index", root, i)
 		os.Remove(partitionPath)
