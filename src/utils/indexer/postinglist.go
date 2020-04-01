@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-const postingSize = 8
+const (
+	postingSize  = 8
+	postingLimit = 256
+)
 
 type postingList struct {
 	Head   *postingGroup
@@ -84,7 +87,7 @@ func (l *postingList) add(docID uint32, offset uint32) {
 		l.Tail = pGroup
 	}
 
-	if cap(l.Tail.Postings) == 256 && len(l.Tail.Postings) == 256 {
+	if cap(l.Tail.Postings) == postingLimit && len(l.Tail.Postings) == postingLimit {
 		pGroup := newPostingGroup()
 		l.Tail.Next = pGroup
 		l.Tail = pGroup

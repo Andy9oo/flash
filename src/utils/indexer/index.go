@@ -16,25 +16,28 @@ const (
 
 // Index datastructure
 type Index struct {
-	root         string            // root directory that the index is used for
-	dictionary   map[string]uint64 // map from terms to file offsets
-	documentList map[uint32]string // map of document ids to their filepath
+	dir  string
+	dict *dictionary
+	docs *doclist
 }
 
-// NewIndex creates a new index for the given directory
-func NewIndex(root string) *Index {
-	index := Index{
-		root:         root,
-		dictionary:   make(map[string]uint64),
-		documentList: make(map[uint32]string),
+// BuildIndex builds a new index for the given directory
+func BuildIndex(root string) *Index {
+	dir := fmt.Sprintf("%v/.index", root)
+
+	i := Index{
+		dir:  dir,
+		dict: newDictionary(dir, 4096),
+		docs: newDocList(dir, 100),
 	}
 
-	index.addDir(root)
-	return &index
+	i.mkdir()
+	i.index(root)
+	return &i
 }
 
-func (i *Index) addDir(dir string) {
-	partition := newIndexPartition(dir, 0)
+func (i *Index) index(dir string) {
+	partition := newPartition(dir, 0)
 	var docID uint32
 
 	visit := func(path string, info os.FileInfo, err error) error {
@@ -46,8 +49,8 @@ func (i *Index) addDir(dir string) {
 		}
 
 		if info.Mode().IsRegular() {
-			partition.addDoc(path, docID)
-			i.addToDocList(docID, path)
+			partition.add(path, docID)
+			i.docs.add(docID, path)
 			docID++
 		}
 
@@ -59,44 +62,99 @@ func (i *Index) addDir(dir string) {
 		fmt.Println(err)
 	}
 
-	// Write remaining entries to a partition file
-	if partition.memoryUsage > 0 {
-		partition.writeToFile()
-	}
-
-	if len(i.documentList) > 0 {
-		i.writeDocList()
-	}
-
-	mergePartitions(dir, partition.partitionNumber+1)
+	partition.dump()
+	i.docs.dump()
+	i.mergePartitions()
 }
 
-func (i *Index) addToDocList(docID uint32, path string) {
-	i.documentList[docID] = path
+func (i *Index) mergePartitions() {
+	path := fmt.Sprintf("%v/index.postings", i.dir)
 
-	if uint32(len(i.documentList)) > documentListLimit {
-		i.writeDocList()
-	}
-}
-
-func (i *Index) writeDocList() {
-	path := fmt.Sprintf("%v/.index/documents.doclist", i.root)
-
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	f, err := os.Create(path)
 	if err != nil {
-		log.Fatal("Could not open document list file")
+		log.Fatal("Could not create index partition")
 	}
-
 	defer f.Close()
 
-	buf := new(bytes.Buffer)
-	for id, path := range i.documentList {
-		binary.Write(buf, binary.LittleEndian, id)
-		binary.Write(buf, binary.LittleEndian, []byte("\n"))
-		binary.Write(buf, binary.LittleEndian, []byte(path))
-		binary.Write(buf, binary.LittleEndian, []byte("\n"))
+	readers := i.getPartitionReaders()
+
+	reader := readers[0]
+	var currentTerm string
+	var prevTerm string
+
+	for reader != nil {
+		reader = nil
+		for i := 0; i < len(readers); i++ {
+			if !readers[i].done {
+				if reader == nil || readers[i].compare(currentTerm) == -1 {
+					reader = readers[i]
+					currentTerm = readers[i].currentTerm
+				}
+			}
+		}
+
+		if reader != nil {
+			buf := new(bytes.Buffer)
+			if currentTerm != prevTerm {
+				binary.Write(buf, binary.LittleEndian, []byte("\n"))
+				binary.Write(buf, binary.LittleEndian, []byte(currentTerm))
+				binary.Write(buf, binary.LittleEndian, []byte("\n"))
+			}
+			binary.Write(buf, binary.LittleEndian, reader.getPostings())
+			buf.WriteTo(f)
+
+			reader.advanceCurrentTerm()
+		}
+	}
+	i.deletePartitionFiles()
+}
+
+func (i *Index) getPartitionReaders() []*partitionReader {
+	var readers []*partitionReader
+
+	for _, file := range i.getPartitionFiles() {
+		path := fmt.Sprintf("%v/%v", i.dir, file)
+		readers = append(readers, newPartitionReader(path))
 	}
 
-	buf.WriteTo(f)
-	i.documentList = make(map[uint32]string)
+	return readers
+}
+
+func (i *Index) getPartitionFiles() []string {
+	var files []string
+
+	dir, err := os.Open(i.dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer dir.Close()
+
+	all, err := dir.Readdirnames(-1)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, file := range all {
+		if filepath.Ext(file) == ".part" {
+			files = append(files, file)
+		}
+	}
+
+	return files
+}
+
+func (i *Index) deletePartitionFiles() {
+	files := i.getPartitionFiles()
+	for _, file := range files {
+		path := fmt.Sprintf("%v/%v", i.dir, file)
+		os.Remove(path)
+	}
+}
+
+func (i *Index) mkdir() {
+	err := os.RemoveAll(i.dir)
+	err = os.Mkdir(i.dir, 0755)
+	if err != nil {
+		log.Fatal("Could not create index directory")
+	}
 }
