@@ -1,17 +1,17 @@
 package indexer
 
 import (
-	"bufio"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"strings"
 )
 
 type partitionReader struct {
-	file        *os.File
-	scanner     *bufio.Scanner
-	currentTerm string
-	done        bool
+	file           *os.File
+	currentTerm    string
+	postingsLength uint32
+	done           bool
 }
 
 func newPartitionReader(path string) *partitionReader {
@@ -20,32 +20,52 @@ func newPartitionReader(path string) *partitionReader {
 		fmt.Printf("Could not open file: %v\n", path)
 	}
 
-	scanner := bufio.NewScanner(f)
-	scanner.Split(bufio.ScanLines)
-	scanner.Scan()
-
-	return &partitionReader{
-		file:        f,
-		scanner:     scanner,
-		currentTerm: scanner.Text(),
-		done:        false,
+	pr := &partitionReader{
+		file: f,
+		done: false,
 	}
+
+	pr.fetchNextTerm()
+	return pr
 }
 
 func (pr *partitionReader) compare(s string) int {
 	return strings.Compare(pr.currentTerm, s)
 }
 
-func (pr *partitionReader) getPostings() []byte {
-	pr.scanner.Scan()
-	return pr.scanner.Bytes()
+func (pr *partitionReader) fetchPostingsLength() uint32 {
+	buf := make([]byte, 4)
+	pr.file.Read(buf)
+	plen := binary.LittleEndian.Uint32(buf)
+	pr.postingsLength = plen
+
+	return plen
 }
 
-func (pr *partitionReader) advanceCurrentTerm() {
-	if pr.scanner.Scan() {
-		pr.currentTerm = pr.scanner.Text()
-	} else {
+func (pr *partitionReader) fetchPostings() []byte {
+	buf := make([]byte, pr.postingsLength)
+	pr.file.Read(buf)
+
+	return buf
+}
+
+func (pr *partitionReader) fetchNextTerm() (ok bool) {
+	if pr.done {
+		return false
+	}
+
+	buf := make([]byte, 4)
+	pr.file.Read(buf)
+	tlen := binary.LittleEndian.Uint32(buf)
+
+	buf = make([]byte, tlen)
+	n, err := pr.file.Read(buf)
+	if n == 0 || err != nil {
 		pr.done = true
 		pr.file.Close()
+		return false
 	}
+
+	pr.currentTerm = string(buf)
+	return true
 }

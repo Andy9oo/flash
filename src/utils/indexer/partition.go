@@ -86,10 +86,12 @@ func (p *partition) dump() {
 
 	buf := new(bytes.Buffer)
 	for _, term := range terms {
+		postings := p.postings[term].Bytes()
+
+		binary.Write(buf, binary.LittleEndian, uint32(len(term)))
 		binary.Write(buf, binary.LittleEndian, []byte(term))
-		binary.Write(buf, binary.LittleEndian, []byte("\n"))
-		binary.Write(buf, binary.LittleEndian, p.postings[term].Bytes())
-		binary.Write(buf, binary.LittleEndian, []byte("\n"))
+		binary.Write(buf, binary.LittleEndian, uint32(len(postings)))
+		binary.Write(buf, binary.LittleEndian, postings)
 	}
 
 	buf.WriteTo(f)

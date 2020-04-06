@@ -68,45 +68,60 @@ func (i *Index) index(dir string) {
 }
 
 func (i *Index) mergePartitions() {
-	path := fmt.Sprintf("%v/index.postings", i.dir)
-
-	f, err := os.Create(path)
-	if err != nil {
-		log.Fatal("Could not create index partition")
-	}
+	f := i.createPostingsFile()
 	defer f.Close()
 
 	readers := i.getPartitionReaders()
 
-	reader := readers[0]
-	var currentTerm string
-	var prevTerm string
-
-	for reader != nil {
-		reader = nil
+	var finished int
+	var selectedReaders []*partitionReader
+	for finished < len(readers) {
+		term := ""
 		for i := 0; i < len(readers); i++ {
-			if !readers[i].done {
-				if reader == nil || readers[i].compare(currentTerm) == -1 {
-					reader = readers[i]
-					currentTerm = readers[i].currentTerm
-				}
+			if readers[i].done {
+				continue
+			}
+
+			cmp := readers[i].compare(term)
+			if cmp == -1 || term == "" { // If the current term is less than the selected term
+				term = readers[i].currentTerm
+				selectedReaders = selectedReaders[:0] // Reset slice keeping allocated memory
+				selectedReaders = append(selectedReaders, readers[i])
+			} else if cmp == 0 { // If the current term is equal to the selected term
+				selectedReaders = append(selectedReaders, readers[i])
 			}
 		}
 
-		if reader != nil {
-			buf := new(bytes.Buffer)
-			if currentTerm != prevTerm {
-				binary.Write(buf, binary.LittleEndian, []byte("\n"))
-				binary.Write(buf, binary.LittleEndian, []byte(currentTerm))
-				binary.Write(buf, binary.LittleEndian, []byte("\n"))
-			}
-			binary.Write(buf, binary.LittleEndian, reader.getPostings())
-			buf.WriteTo(f)
+		var total uint32
+		for _, r := range selectedReaders {
+			total += r.fetchPostingsLength()
+		}
 
-			reader.advanceCurrentTerm()
+		buf := new(bytes.Buffer)
+		binary.Write(buf, binary.LittleEndian, uint32(len(term)))
+		binary.Write(buf, binary.LittleEndian, []byte(term))
+		binary.Write(buf, binary.LittleEndian, total)
+		buf.WriteTo(f)
+
+		for _, r := range selectedReaders {
+			f.Write(r.fetchPostings())
+			if ok := r.fetchNextTerm(); !ok {
+				finished++
+			}
 		}
 	}
 	i.deletePartitionFiles()
+}
+
+func (i *Index) createPostingsFile() *os.File {
+	path := fmt.Sprintf("%v/index.postings", i.dir)
+
+	f, err := os.Create(path)
+	if err != nil {
+		log.Fatal("Could not create index file")
+	}
+
+	return f
 }
 
 func (i *Index) getPartitionReaders() []*partitionReader {
