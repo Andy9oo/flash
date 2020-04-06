@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -49,8 +50,9 @@ func (d *doclist) dump() {
 	buf := new(bytes.Buffer)
 	for id, path := range d.list {
 		binary.Write(buf, binary.LittleEndian, id)
-		binary.Write(buf, binary.LittleEndian, uint32(len(path)))
+		binary.Write(buf, binary.LittleEndian, []byte("\n"))
 		binary.Write(buf, binary.LittleEndian, []byte(path))
+		binary.Write(buf, binary.LittleEndian, []byte("\n"))
 	}
 
 	buf.WriteTo(f)
@@ -68,32 +70,20 @@ func (d *doclist) fetchPath(id uint32) (path string, ok bool) {
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	defer f.Close()
 
-	found := false
-	for !found {
-		// Read in id
-		buf := make([]byte, 4)
-		n, err := f.Read(buf)
-		if n == 0 || err != nil {
-			return "", false
-		}
-		currentID := binary.LittleEndian.Uint32(buf)
+	scanner := bufio.NewScanner(f)
+	scanner.Split(bufio.ScanLines)
 
-		// Read in path length
-		buf = make([]byte, 4)
-		f.Read(buf)
-		pathLength := binary.LittleEndian.Uint32(buf)
-
-		if currentID == id {
-			// Read in path
-			buf = make([]byte, pathLength)
-			f.Read(buf)
-			path = string(buf)
-			found = true
-		} else {
-			f.Seek(int64(pathLength), os.SEEK_CUR)
+	for scanner.Scan() {
+		fmt.Println(scanner.Bytes())
+		if binary.LittleEndian.Uint32(scanner.Bytes()) == id {
+			scanner.Scan()
+			return scanner.Text(), true
 		}
+		scanner.Scan()
 	}
-	return path, found
+
+	return "", false
 }
