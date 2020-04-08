@@ -1,12 +1,9 @@
 package indexer
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"os"
-	"strings"
 )
 
 const (
@@ -39,27 +36,7 @@ func newPostingGroup() *postingGroup {
 	return &pGroup
 }
 
-func getPostingList(file string, offset int64) (string, *postingList) {
-	f, err := os.Open(file)
-	if err != nil {
-		fmt.Printf("Could not open file: %v\n", file)
-	}
-	defer f.Close()
-
-	f.Seek(offset, 0)
-
-	reader := bufio.NewReader(f)
-	term, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	term = strings.TrimRight(term, "\n")
-	buf, err := reader.ReadBytes('\n')
-	if err != nil {
-		fmt.Println(err)
-	}
-
+func getPostingList(buf []byte) *postingList {
 	l := new(postingList)
 	for i := 0; i*postingSize < len(buf)-1; i++ {
 		start := i * postingSize
@@ -72,7 +49,7 @@ func getPostingList(file string, offset int64) (string, *postingList) {
 		l.add(docID, offset)
 	}
 
-	return term, l
+	return l
 }
 
 func (l *postingList) add(docID uint32, offset uint32) {

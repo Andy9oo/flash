@@ -27,12 +27,18 @@ func BuildIndex(root string) *Index {
 
 	i := Index{
 		dir:  dir,
-		dict: newDictionary(dir, 4096),
 		docs: newDocList(dir, 100),
 	}
 
 	i.mkdir()
+
+	fmt.Println("Building index...")
 	i.index(root)
+
+	fmt.Println("Loading Dictionary...")
+	i.dict = loadDictionary(i.dir, 4096)
+
+	fmt.Println("Done!")
 	return &i
 }
 
@@ -74,7 +80,7 @@ func (i *Index) mergePartitions() {
 	readers := i.getPartitionReaders()
 
 	var finished int
-	var selectedReaders []*partitionReader
+	var selectedReaders []*indexReader
 	for finished < len(readers) {
 		term := ""
 		for i := 0; i < len(readers); i++ {
@@ -124,12 +130,12 @@ func (i *Index) createPostingsFile() *os.File {
 	return f
 }
 
-func (i *Index) getPartitionReaders() []*partitionReader {
-	var readers []*partitionReader
+func (i *Index) getPartitionReaders() []*indexReader {
+	var readers []*indexReader
 
 	for _, file := range i.getPartitionFiles() {
 		path := fmt.Sprintf("%v/%v", i.dir, file)
-		readers = append(readers, newPartitionReader(path))
+		readers = append(readers, newIndexReader(path))
 	}
 
 	return readers
