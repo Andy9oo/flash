@@ -12,25 +12,25 @@ const (
 )
 
 type postingList struct {
-	Head   *postingGroup
-	Tail   *postingGroup
+	head   *postingGroup
+	tail   *postingGroup
 	length uint32
 }
 
 type postingGroup struct {
-	Postings []posting
-	Next     *postingGroup
+	postings []posting
+	next     *postingGroup
 }
 
 type posting struct {
-	DocID  uint32
-	Offset uint32
+	docID  uint32
+	offset uint32
 }
 
 func newPostingGroup() *postingGroup {
 	pGroup := postingGroup{
-		Postings: make([]posting, 0, 16),
-		Next:     nil,
+		postings: make([]posting, 0, 16),
+		next:     nil,
 	}
 
 	return &pGroup
@@ -54,34 +54,34 @@ func getPostingList(buf []byte) *postingList {
 
 func (l *postingList) add(docID uint32, offset uint32) {
 	p := posting{
-		DocID:  docID,
-		Offset: offset,
+		docID:  docID,
+		offset: offset,
 	}
 
-	if l.Head == nil {
+	if l.head == nil {
 		pGroup := newPostingGroup()
-		l.Head = pGroup
-		l.Tail = pGroup
+		l.head = pGroup
+		l.tail = pGroup
 	}
 
-	if cap(l.Tail.Postings) == postingLimit && len(l.Tail.Postings) == postingLimit {
+	if cap(l.tail.postings) == postingLimit && len(l.tail.postings) == postingLimit {
 		pGroup := newPostingGroup()
-		l.Tail.Next = pGroup
-		l.Tail = pGroup
+		l.tail.next = pGroup
+		l.tail = pGroup
 	}
 
-	l.Tail.Postings = append(l.Tail.Postings, p)
+	l.tail.postings = append(l.tail.postings, p)
 	l.length++
 }
 
 func (l *postingList) String() string {
 	var out string
 
-	for g := l.Head; g != nil; g = g.Next {
-		for i := 0; i < len(g.Postings); i++ {
-			posting := g.Postings[i]
-			out += fmt.Sprintf("%v;%v", posting.DocID, posting.Offset)
-			if i != len(g.Postings)-1 || g.Next != nil {
+	for g := l.head; g != nil; g = g.next {
+		for i := 0; i < len(g.postings); i++ {
+			posting := g.postings[i]
+			out += fmt.Sprintf("%v;%v", posting.docID, posting.offset)
+			if i != len(g.postings)-1 || g.next != nil {
 				out += "|"
 			}
 		}
@@ -92,12 +92,12 @@ func (l *postingList) String() string {
 func (l *postingList) Bytes() []byte {
 	buf := new(bytes.Buffer)
 
-	for g := l.Head; g != nil; g = g.Next {
-		for i := 0; i < len(g.Postings); i++ {
-			posting := g.Postings[i]
+	for g := l.head; g != nil; g = g.next {
+		for i := 0; i < len(g.postings); i++ {
+			posting := g.postings[i]
 
-			binary.Write(buf, binary.LittleEndian, posting.DocID)
-			binary.Write(buf, binary.LittleEndian, posting.Offset)
+			binary.Write(buf, binary.LittleEndian, posting.docID)
+			binary.Write(buf, binary.LittleEndian, posting.offset)
 		}
 	}
 
