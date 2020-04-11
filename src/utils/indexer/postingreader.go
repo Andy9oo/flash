@@ -3,7 +3,6 @@ package indexer
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"os"
 )
 
@@ -59,13 +58,7 @@ func (r *postingReader) fetchOffsets() []byte {
 	return buf
 }
 
-func mergePostings(indexReaders []*indexReader, out *os.File) {
-	postingReaders := make([]*postingReader, len(indexReaders))
-
-	for i := range indexReaders {
-		postingReaders[i] = newPostingReader(indexReaders[i].file, indexReaders[i].postingsLength)
-	}
-
+func mergePostings(postingReaders []*postingReader, out *os.File) {
 	var finished int
 	var selectedReaders []*postingReader
 	for finished < len(postingReaders) {
@@ -102,6 +95,5 @@ func mergePostings(indexReaders []*indexReader, out *os.File) {
 				finished++
 			}
 		}
-		fmt.Println(finished < len(postingReaders))
 	}
 }

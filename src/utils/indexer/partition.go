@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const postingsLimit = 10
+const postingsLimit = 1024
 
 type partition struct {
 	root            string
