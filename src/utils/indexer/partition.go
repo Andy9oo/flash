@@ -11,11 +11,13 @@ import (
 	"strings"
 )
 
+const postingsLimit = 10
+
 type partition struct {
 	root            string
 	partitionNumber uint32
 	postings        map[string]*postingList
-	memoryUsage     uint32
+	numPostings     uint32
 }
 
 func newPartition(root string, partitionNumber uint32) *partition {
@@ -38,9 +40,9 @@ func (p *partition) add(file string, docID uint32) {
 		pl := p.getPostingList(term)
 		pl.add(docID, offset)
 
-		p.memoryUsage += postingSize
+		p.numPostings++
 
-		if p.memoryUsage >= partitionSizeLimit {
+		if p.numPostings >= postingsLimit {
 			p.dump()
 			p.reset(p.partitionNumber + 1)
 		}
@@ -63,7 +65,7 @@ func (p *partition) getPostingList(term string) *postingList {
 }
 
 func (p *partition) dump() {
-	if p.memoryUsage == 0 {
+	if p.numPostings == 0 {
 		return
 	}
 
@@ -100,7 +102,7 @@ func (p *partition) dump() {
 func (p *partition) reset(partitionNumber uint32) {
 	p.partitionNumber = partitionNumber
 	p.postings = make(map[string]*postingList)
-	p.memoryUsage = 0
+	p.numPostings = 0
 }
 
 func (p *partition) getPath() string {

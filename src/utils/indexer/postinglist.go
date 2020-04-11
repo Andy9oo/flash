@@ -6,85 +6,81 @@ import (
 	"fmt"
 )
 
-const (
-	postingSize  = 8
-	postingLimit = 256
-)
-
 type postingList struct {
-	head   *postingGroup
-	tail   *postingGroup
+	head   *posting
+	tail   *posting
 	length uint32
 }
 
-type postingGroup struct {
-	postings []posting
-	next     *postingGroup
-}
-
 type posting struct {
-	docID  uint32
-	offset uint32
+	docID     uint32
+	frequency uint32
+	offsets   []uint32
+	next      *posting
 }
 
-func newPostingGroup() *postingGroup {
-	pGroup := postingGroup{
-		postings: make([]posting, 0, 16),
-		next:     nil,
+func newPosting(docID uint32) *posting {
+	return &posting{
+		docID:     docID,
+		frequency: 0,
+		next:      nil,
 	}
-
-	return &pGroup
 }
 
 func getPostingList(buf []byte) *postingList {
 	l := new(postingList)
-	for i := 0; i*postingSize < len(buf)-1; i++ {
-		start := i * postingSize
-		middle := start + postingSize/2
-		end := start + postingSize
 
-		docID := binary.LittleEndian.Uint32(buf[start:middle])
-		offset := binary.LittleEndian.Uint32(buf[middle:end])
+	offset := 0
+	for offset < len(buf) {
+		id := binary.LittleEndian.Uint32(buf[offset : offset+4])
+		offset += 4
 
-		l.add(docID, offset)
+		frequency := binary.LittleEndian.Uint32(buf[offset : offset+4])
+		offset += 4
+
+		for i := uint32(0); i < frequency; i++ {
+			pos := binary.LittleEndian.Uint32(buf[offset : offset+4])
+			l.add(id, pos)
+			offset += 4
+		}
 	}
 
 	return l
 }
 
 func (l *postingList) add(docID uint32, offset uint32) {
-	p := posting{
-		docID:  docID,
-		offset: offset,
-	}
-
 	if l.head == nil {
-		pGroup := newPostingGroup()
-		l.head = pGroup
-		l.tail = pGroup
+		p := newPosting(docID)
+
+		l.head = p
+		l.tail = p
+		l.length++
 	}
 
-	if cap(l.tail.postings) == postingLimit && len(l.tail.postings) == postingLimit {
-		pGroup := newPostingGroup()
-		l.tail.next = pGroup
-		l.tail = pGroup
+	if l.tail.docID != docID {
+		p := newPosting(docID)
+
+		l.tail.next = p
+		l.tail = p
+		l.length++
 	}
 
-	l.tail.postings = append(l.tail.postings, p)
-	l.length++
+	l.tail.offsets = append(l.tail.offsets, offset)
+	l.tail.frequency++
 }
 
 func (l *postingList) String() string {
 	var out string
 
-	for g := l.head; g != nil; g = g.next {
-		for i := 0; i < len(g.postings); i++ {
-			posting := g.postings[i]
-			out += fmt.Sprintf("%v;%v", posting.docID, posting.offset)
-			if i != len(g.postings)-1 || g.next != nil {
-				out += "|"
+	for p := l.head; p != nil; p = p.next {
+		out += fmt.Sprintf("(%v, %v, [", p.docID, p.frequency)
+		for i := 0; i < len(p.offsets); i++ {
+			out += fmt.Sprintf("%v", p.offsets[i])
+			if i != len(p.offsets)-1 {
+				out += ","
 			}
 		}
+		out += "]) "
 	}
 	return out
 }
@@ -92,12 +88,11 @@ func (l *postingList) String() string {
 func (l *postingList) Bytes() []byte {
 	buf := new(bytes.Buffer)
 
-	for g := l.head; g != nil; g = g.next {
-		for i := 0; i < len(g.postings); i++ {
-			posting := g.postings[i]
-
-			binary.Write(buf, binary.LittleEndian, posting.docID)
-			binary.Write(buf, binary.LittleEndian, posting.offset)
+	for p := l.head; p != nil; p = p.next {
+		binary.Write(buf, binary.LittleEndian, p.docID)
+		binary.Write(buf, binary.LittleEndian, p.frequency)
+		for i := 0; i < len(p.offsets); i++ {
+			binary.Write(buf, binary.LittleEndian, p.offsets[i])
 		}
 	}
 

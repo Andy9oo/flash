@@ -10,8 +10,7 @@ import (
 )
 
 const (
-	partitionSizeLimit = uint32(1e5)
-	documentListLimit  = uint32(1e4)
+	documentListLimit = uint32(1e4)
 )
 
 // Index datastructure
@@ -98,25 +97,27 @@ func (i *Index) mergePartitions() {
 			}
 		}
 
-		var total uint32
+		var postingsLength uint32
 		for _, r := range selectedReaders {
-			total += r.fetchPostingsLength()
+			postingsLength += r.fetchPostingsLength()
 		}
 
 		buf := new(bytes.Buffer)
 		binary.Write(buf, binary.LittleEndian, uint32(len(term)))
 		binary.Write(buf, binary.LittleEndian, []byte(term))
-		binary.Write(buf, binary.LittleEndian, total)
+		binary.Write(buf, binary.LittleEndian, postingsLength)
 		buf.WriteTo(f)
 
+		fmt.Println("Term", term)
+		mergePostings(selectedReaders, f)
+
 		for _, r := range selectedReaders {
-			f.Write(r.fetchPostings())
 			if ok := r.fetchNextTerm(); !ok {
 				finished++
 			}
 		}
 	}
-	i.deletePartitionFiles()
+	// i.deletePartitionFiles()
 }
 
 func (i *Index) createPostingsFile() *os.File {
