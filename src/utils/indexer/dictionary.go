@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 )
 
 type dictionary struct {
@@ -30,6 +31,7 @@ func loadDictionary(root string, blockSize int64) *dictionary {
 func (d *dictionary) getPostings(term string) (*postingList, bool) {
 	indexPath := fmt.Sprintf("%v/index.postings", d.root)
 	indexReader := newIndexReader(indexPath)
+	term = strings.ToLower(term)
 
 	if offset, ok := d.entries[term]; ok {
 		_, postings := indexReader.fetchEntry(offset)
@@ -37,12 +39,16 @@ func (d *dictionary) getPostings(term string) (*postingList, bool) {
 	}
 
 	keys := make([]string, 0, len(d.entries))
-	for key, _ := range d.entries {
+	for key := range d.entries {
 		keys = append(keys, key)
 	}
 
 	sort.Strings(keys)
 	pos := sort.SearchStrings(keys, term) - 1
+
+	if pos == len(keys)-1 {
+		return nil, false
+	}
 
 	start := d.entries[keys[pos]]
 	end := d.entries[keys[pos+1]]
@@ -56,7 +62,7 @@ func (d *dictionary) fecthOffsets() {
 
 	var remainingBytes int64
 	var offset int64
-	for !reader.done {
+	for {
 		numBytes := int64(len(reader.currentTerm)) + int64(reader.fetchPostingsLength()) + 8 // 8 bytes used for offsets
 		remainingBytes -= numBytes
 		if remainingBytes <= 0 {
@@ -67,6 +73,11 @@ func (d *dictionary) fecthOffsets() {
 		reader.skipPostings()
 		reader.fetchNextTerm()
 		offset += numBytes
+
+		if reader.done {
+			d.entries[reader.currentTerm] = offset - numBytes
+			return
+		}
 	}
 }
 

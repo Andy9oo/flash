@@ -29,36 +29,13 @@ func newIndexReader(path string) *indexReader {
 	return r
 }
 
-func (r *indexReader) compare(s string) int {
-	return strings.Compare(r.currentTerm, s)
-}
-
-func (r *indexReader) fetchPostingsLength() uint32 {
-	buf := make([]byte, 4)
-	r.file.Read(buf)
-	plen := binary.LittleEndian.Uint32(buf)
-	r.postingsLength = plen
-
-	return plen
-}
-
-func (r *indexReader) fetchPostings() []byte {
-	buf := make([]byte, r.postingsLength)
-	r.file.Read(buf)
-
-	return buf
-}
-
 func (r *indexReader) fetchNextTerm() (ok bool) {
 	if r.done {
 		return false
 	}
 
-	buf := make([]byte, 4)
-	r.file.Read(buf)
-	tlen := binary.LittleEndian.Uint32(buf)
-
-	buf = make([]byte, tlen)
+	tlen := r.readNextInt()
+	buf := make([]byte, tlen)
 	n, err := r.file.Read(buf)
 	if n == 0 || err != nil {
 		r.done = true
@@ -68,6 +45,17 @@ func (r *indexReader) fetchNextTerm() (ok bool) {
 
 	r.currentTerm = string(buf)
 	return true
+}
+
+func (r *indexReader) fetchPostingsLength() uint32 {
+	r.postingsLength = r.readNextInt()
+	return r.postingsLength
+}
+
+func (r *indexReader) fetchPostings() []byte {
+	buf := make([]byte, r.postingsLength)
+	r.file.Read(buf)
+	return buf
 }
 
 func (r *indexReader) skipPostings() {
@@ -80,7 +68,7 @@ func (r *indexReader) fetchEntry(offset int64) (term string, postings *postingLi
 	r.fetchPostingsLength()
 	buf := r.fetchPostings()
 
-	return r.currentTerm, getPostingList(buf)
+	return r.currentTerm, decodePostingList(buf)
 }
 
 func (r *indexReader) findPostings(term string, start int64, end int64) (postings *postingList, ok bool) {
@@ -102,11 +90,22 @@ func (r *indexReader) findPostings(term string, start int64, end int64) (posting
 		i += 4
 
 		if t == term {
-			return getPostingList(block[i : i+plen]), true
-		} else {
-			i += plen
+			return decodePostingList(block[i : i+plen]), true
 		}
+
+		i += plen
 	}
 
 	return nil, false
+}
+
+func (r *indexReader) readNextInt() uint32 {
+	buf := make([]byte, 4)
+	r.file.Read(buf)
+
+	return binary.LittleEndian.Uint32(buf)
+}
+
+func (r *indexReader) compare(s string) int {
+	return strings.Compare(r.currentTerm, s)
 }

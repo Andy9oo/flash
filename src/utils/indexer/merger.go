@@ -6,137 +6,95 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 )
 
-type partitionMerger struct {
-	dir      string
-	file     *os.File
-	readers  []*indexReader
-	finished int
+type merger struct {
+	dir       string
+	output    *os.File
+	paritions []*partition
+	readers   []*indexReader
+	finished  int
 }
 
-func newPartitionMerger(dir string) *partitionMerger {
-	pm := partitionMerger{
-		dir: dir,
-	}
+func merge(dir string, partitions []*partition) {
+	m := merger{dir: dir, paritions: partitions}
+	m.createOutputFile()
+	defer m.output.Close()
 
-	return &pm
-}
-
-func (pm *partitionMerger) mergePartitions() {
-	pm.makePostingsFile()
-	defer pm.file.Close()
-
-	pm.openReaders()
-
-	for pm.finished < len(pm.readers) {
-		term, readers := pm.getNextTerm()
-		plen := pm.getPostingsLength(readers)
+	m.openReaders(partitions)
+	for m.finished < len(m.readers) {
+		term, readers := m.getNextTerm()
 
 		buf := new(bytes.Buffer)
 		binary.Write(buf, binary.LittleEndian, uint32(len(term)))
 		binary.Write(buf, binary.LittleEndian, []byte(term))
-		binary.Write(buf, binary.LittleEndian, plen)
-		buf.WriteTo(pm.file)
+		buf.WriteTo(m.output)
 
-		pm.writePostings(readers)
-		pm.advanceTerms(readers)
+		m.mergePostings(readers)
+		m.advanceTerms(readers)
 	}
 
-	pm.deletePartitionFiles()
+	m.deletePartitionFiles()
 }
 
-func (pm *partitionMerger) getNextTerm() (term string, readers []*indexReader) {
-	for i := 0; i < len(pm.readers); i++ {
-		if pm.readers[i].done {
+func (m *merger) getNextTerm() (term string, readers []*indexReader) {
+	for i := 0; i < len(m.readers); i++ {
+		if m.readers[i].done {
 			continue
 		}
-
-		cmp := pm.readers[i].compare(term)
+		cmp := m.readers[i].compare(term)
 		if cmp == -1 || term == "" { // If the current term is less than the selected term
-			term = pm.readers[i].currentTerm
+			term = m.readers[i].currentTerm
 			readers = readers[:0] // Reset slice keeping allocated memory
-			readers = append(readers, pm.readers[i])
+			readers = append(readers, m.readers[i])
 		} else if cmp == 0 { // If the current term is equal to the selected term
-			readers = append(readers, pm.readers[i])
+			readers = append(readers, m.readers[i])
 		}
 	}
-
 	return term, readers
 }
 
-func (pm *partitionMerger) getPostingsLength(readers []*indexReader) (length uint32) {
-	for _, r := range readers {
-		length += r.fetchPostingsLength()
+func (m *merger) mergePostings(readers []*indexReader) {
+	var plist postingList
+	for i := 0; i < len(readers); i++ {
+		readers[i].fetchPostingsLength()
+		l := decodePostingList(readers[i].fetchPostings())
+
+		for p := l.head; p != nil; p = p.next {
+			plist.add(p.docID, p.offsets...)
+		}
 	}
 
-	return length
+	buf := plist.Bytes()
+	binary.Write(m.output, binary.LittleEndian, uint32(len(buf)))
+	m.output.Write(buf)
 }
 
-func (pm *partitionMerger) writePostings(readers []*indexReader) {
-	postingReaders := make([]*postingReader, len(readers))
-
+func (m *merger) advanceTerms(readers []*indexReader) {
 	for i := range readers {
-		postingReaders[i] = newPostingReader(readers[i].file, readers[i].postingsLength)
-	}
-
-	mergePostings(postingReaders, pm.file)
-}
-
-func (pm *partitionMerger) advanceTerms(readers []*indexReader) {
-	for _, r := range readers {
-		if ok := r.fetchNextTerm(); !ok {
-			pm.finished++
+		if ok := readers[i].fetchNextTerm(); !ok {
+			m.finished++
 		}
 	}
 }
 
-func (pm *partitionMerger) makePostingsFile() {
-	path := fmt.Sprintf("%v/index.postings", pm.dir)
-
+func (m *merger) createOutputFile() {
+	path := fmt.Sprintf("%v/index.postings", m.dir)
 	f, err := os.Create(path)
 	if err != nil {
 		log.Fatal("Could not create index file")
 	}
-
-	pm.file = f
+	m.output = f
 }
 
-func (pm *partitionMerger) openReaders() {
-	for _, file := range pm.getPartitionFiles() {
-		path := fmt.Sprintf("%v/%v", pm.dir, file)
-		pm.readers = append(pm.readers, newIndexReader(path))
+func (m *merger) openReaders(partitions []*partition) {
+	for i := range partitions {
+		m.readers = append(m.readers, newIndexReader(partitions[i].getPath()))
 	}
 }
 
-func (pm *partitionMerger) getPartitionFiles() []string {
-	var files []string
-
-	dir, err := os.Open(pm.dir)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer dir.Close()
-
-	all, err := dir.Readdirnames(-1)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, file := range all {
-		if filepath.Ext(file) == ".part" {
-			files = append(files, file)
-		}
-	}
-
-	return files
-}
-
-func (pm *partitionMerger) deletePartitionFiles() {
-	files := pm.getPartitionFiles()
-	for _, file := range files {
-		path := fmt.Sprintf("%v/%v", pm.dir, file)
-		os.Remove(path)
+func (m *merger) deletePartitionFiles() {
+	for i := range m.paritions {
+		os.Remove(m.paritions[i].getPath())
 	}
 }

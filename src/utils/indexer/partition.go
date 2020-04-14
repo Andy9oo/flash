@@ -3,26 +3,22 @@ package indexer
 import (
 	"bytes"
 	"encoding/binary"
-	"flash/src/utils/importer"
 	"fmt"
 	"log"
 	"os"
 	"sort"
-	"strings"
 )
 
-const postingsLimit = 1024
-
 type partition struct {
-	root            string
-	partitionNumber uint32
+	dir             string
+	partitionNumber int
 	postings        map[string]*postingList
 	numPostings     uint32
 }
 
-func newPartition(root string, partitionNumber uint32) *partition {
+func newPartition(dir string, partitionNumber int) *partition {
 	p := partition{
-		root:            root,
+		dir:             dir,
 		partitionNumber: partitionNumber,
 		postings:        make(map[string]*postingList),
 	}
@@ -30,38 +26,17 @@ func newPartition(root string, partitionNumber uint32) *partition {
 	return &p
 }
 
-func (p *partition) add(file string, docID uint32) {
-	textChannel := importer.GetTextChannel(file)
-	var offset uint32
-
-	for term := range textChannel {
-		term = strings.ToLower(term)
-
-		pl := p.getPostingList(term)
-		pl.add(docID, offset)
-
-		p.numPostings++
-
-		if p.numPostings >= postingsLimit {
-			p.dump()
-			p.reset(p.partitionNumber + 1)
-		}
-
-		offset++
+func (p *partition) add(term string, docID uint32, offset uint32) {
+	if _, ok := p.postings[term]; !ok {
+		p.postings[term] = new(postingList)
 	}
+
+	p.postings[term].add(docID, offset)
+	p.numPostings++
 }
 
-func (p *partition) getPostingList(term string) *postingList {
-	var pl *postingList
-
-	if val, ok := p.postings[term]; ok {
-		pl = val
-	} else {
-		pl = new(postingList)
-		p.postings[term] = pl
-	}
-
-	return pl
+func (p *partition) full() bool {
+	return p.numPostings >= postingsLimit
 }
 
 func (p *partition) dump() {
@@ -73,7 +48,6 @@ func (p *partition) dump() {
 	if err != nil {
 		log.Fatal("Could not create index partition")
 	}
-
 	defer f.Close()
 
 	terms := make([]string, len(p.postings))
@@ -99,12 +73,6 @@ func (p *partition) dump() {
 	buf.WriteTo(f)
 }
 
-func (p *partition) reset(partitionNumber uint32) {
-	p.partitionNumber = partitionNumber
-	p.postings = make(map[string]*postingList)
-	p.numPostings = 0
-}
-
 func (p *partition) getPath() string {
-	return fmt.Sprintf("%v/.index/p%d.part", p.root, p.partitionNumber)
+	return fmt.Sprintf("%v/p%d.part", p.dir, p.partitionNumber)
 }

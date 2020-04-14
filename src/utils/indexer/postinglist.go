@@ -7,9 +7,8 @@ import (
 )
 
 type postingList struct {
-	head   *posting
-	tail   *posting
-	length uint32
+	head *posting
+	tail *posting
 }
 
 type posting struct {
@@ -19,15 +18,7 @@ type posting struct {
 	next      *posting
 }
 
-func newPosting(docID uint32) *posting {
-	return &posting{
-		docID:     docID,
-		frequency: 0,
-		next:      nil,
-	}
-}
-
-func getPostingList(buf []byte) *postingList {
+func decodePostingList(buf []byte) *postingList {
 	l := new(postingList)
 
 	offset := 0
@@ -44,34 +35,53 @@ func getPostingList(buf []byte) *postingList {
 			offset += 4
 		}
 	}
-
 	return l
 }
 
-func (l *postingList) add(docID uint32, offset uint32) {
-	if l.head == nil {
-		p := newPosting(docID)
+func (l *postingList) add(docID uint32, offsets ...uint32) {
+	if l.head == nil || docID < l.head.docID {
+		p := &posting{docID: docID}
+		p.addOffsets(offsets)
+		l.push(p)
+		return
+	}
 
+	for p := l.head; p != nil; p = p.next {
+		if p.docID == docID {
+			p.addOffsets(offsets)
+			return
+		}
+
+		if p.next == nil || (p.docID < docID && docID < p.next.docID) {
+			temp := p.next
+			p.next = &posting{docID: docID, next: temp}
+			p.next.addOffsets(offsets)
+			if temp == nil {
+				l.tail = p.next
+			}
+			return
+		}
+	}
+}
+
+func (l *postingList) push(p *posting) {
+	if l.head == nil {
 		l.head = p
 		l.tail = p
-		l.length++
+	} else {
+		temp := l.head.next
+		p.next = temp
+		l.head = p
 	}
+}
 
-	if l.tail.docID != docID {
-		p := newPosting(docID)
-
-		l.tail.next = p
-		l.tail = p
-		l.length++
-	}
-
-	l.tail.offsets = append(l.tail.offsets, offset)
-	l.tail.frequency++
+func (p *posting) addOffsets(offsets []uint32) {
+	p.offsets = append(p.offsets, offsets...)
+	p.frequency += uint32(len(offsets))
 }
 
 func (l *postingList) String() string {
 	var out string
-
 	for p := l.head; p != nil; p = p.next {
 		out += fmt.Sprintf("(%v, %v, [", p.docID, p.frequency)
 		for i := 0; i < len(p.offsets); i++ {
@@ -87,7 +97,6 @@ func (l *postingList) String() string {
 
 func (l *postingList) Bytes() []byte {
 	buf := new(bytes.Buffer)
-
 	for p := l.head; p != nil; p = p.next {
 		binary.Write(buf, binary.LittleEndian, p.docID)
 		binary.Write(buf, binary.LittleEndian, p.frequency)
@@ -95,6 +104,5 @@ func (l *postingList) Bytes() []byte {
 			binary.Write(buf, binary.LittleEndian, p.offsets[i])
 		}
 	}
-
 	return buf.Bytes()
 }

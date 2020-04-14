@@ -9,9 +9,10 @@ import (
 )
 
 type doclist struct {
-	path  string
-	list  map[uint32]string
-	limit int
+	path    string
+	list    map[uint32]string
+	limit   int
+	numDocs uint32
 }
 
 func newDocList(root string, limit int) *doclist {
@@ -26,9 +27,10 @@ func newDocList(root string, limit int) *doclist {
 	return &l
 }
 
-func (d *doclist) add(id uint32, file string) {
-	d.list[id] = file
+func (d *doclist) add(file string) {
+	d.numDocs++
 
+	d.list[d.numDocs] = file
 	if len(d.list) >= d.limit {
 		d.dump()
 	}
