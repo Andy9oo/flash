@@ -7,6 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/theckman/yacspin"
 )
 
 const (
@@ -37,13 +40,31 @@ func BuildIndex(root string) *Index {
 	i.createDir()
 	i.addPartition()
 
-	fmt.Println("Building index...")
+	cfg := yacspin.Config{
+		CharSet:         yacspin.CharSets[59],
+		Frequency:       100 * time.Millisecond,
+		Suffix:          " Building Index",
+		SuffixAutoColon: true,
+		StopCharacter:   "✓",
+		StopMessage:     "Done!",
+		Colors:          []string{"fgYellow"},
+		StopColors:      []string{"fgGreen"},
+		ColorAll:        true,
+	}
+
+	spinner, _ := yacspin.New(cfg)
+	spinner.Start()
+
+	spinner.Message("Indexing Directory")
 	i.index(root)
 
-	fmt.Println("Loading Dictionary...")
+	spinner.Message("Merging Partitions")
+	i.mergeParitions()
+
+	spinner.Message("Loading Dictionary")
 	i.dict = loadDictionary(i.dir, dictionaryLimit)
 
-	fmt.Println("Done!")
+	spinner.Stop()
 	return &i
 }
 
@@ -89,7 +110,6 @@ func (i *Index) index(dir string) {
 	}
 
 	i.clearMemory()
-	i.mergeParitions()
 }
 
 func (i *Index) add(file string) {
