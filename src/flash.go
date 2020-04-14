@@ -13,5 +13,6 @@ func main() {
 		log.Fatal("Could not get filepath")
 	}
 
-	indexer.BuildIndex(path)
+	// indexer.BuildIndex(path)
+	indexer.LoadIndex(path)
 }

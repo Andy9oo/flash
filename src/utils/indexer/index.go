@@ -47,6 +47,26 @@ func BuildIndex(root string) *Index {
 	return &i
 }
 
+// LoadIndex opens the index for the given root file
+func LoadIndex(root string) (index *Index, ok bool) {
+	dir := fmt.Sprintf("%v/.index", root)
+
+	index = &Index{
+		dir:  dir,
+		docs: newDocList(dir, documentListLimit),
+	}
+
+	postingsFile := fmt.Sprintf("%v/index.postings", index.dir)
+	_, err := os.Stat(postingsFile)
+	if err != nil {
+		fmt.Println("No index found")
+		return nil, false
+	}
+
+	index.dict = loadDictionary(dir, dictionaryLimit)
+	return index, true
+}
+
 func (i *Index) index(dir string) {
 	visit := func(path string, info os.FileInfo, err error) error {
 		if info.Name()[0:1] == "." {

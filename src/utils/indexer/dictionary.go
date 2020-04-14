@@ -24,7 +24,6 @@ func loadDictionary(root string, blockSize int64) *dictionary {
 	}
 
 	d.fecthOffsets()
-	d.dump()
 	return &d
 }
 
