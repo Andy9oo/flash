@@ -158,7 +158,9 @@ func (i *Index) mergeParitions() {
 }
 
 func (i *Index) clearMemory() {
-	i.partitions[len(i.partitions)-1].dump()
+	for _, p := range i.partitions {
+		p.dump()
+	}
 	i.docs.dump()
 }
 

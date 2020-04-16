@@ -36,11 +36,11 @@ func (p *partition) add(term string, docID uint32, offset uint32) {
 }
 
 func (p *partition) full() bool {
-	return p.numPostings >= postingsLimit
+	return len(p.postings) >= postingsLimit
 }
 
 func (p *partition) dump() {
-	if p.numPostings == 0 {
+	if len(p.postings) == 0 {
 		return
 	}
 
@@ -72,6 +72,7 @@ func (p *partition) dump() {
 
 	buf.WriteTo(f)
 	p.postings = nil
+	p.numPostings = 0
 }
 
 func (p *partition) getPath() string {
