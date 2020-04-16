@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	documentListLimit = 1024
-	postingsLimit     = 4096
-	dictionaryLimit   = 4096
-	chunkSize         = 1000
+	documentListLimit = 1 << 10
+	postingsLimit     = 1 << 20
+	dictionaryLimit   = 1 << 20
+	chunkSize         = 1 << 10
 )
 
 // Index datastructure
@@ -90,20 +90,131 @@ func LoadIndex(root string) (index *Index, ok bool) {
 	return index, true
 }
 
-func (i *Index) First() {
+// Add adds the given file or directory to the index
+func (i *Index) Add(path string) {
+	stat, err := os.Stat(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
+	if stat.IsDir() {
+		i.index(path)
+	} else {
+		textChannel := importer.GetTextChannel(path)
+		i.docs.add(path)
+
+		var offset uint32
+		for term := range textChannel {
+			p := i.partitions[len(i.partitions)-1]
+			if p.full() {
+				p.dump()
+				p = i.addPartition()
+			}
+
+			term = strings.ToLower(term)
+			p.add(term, i.docs.numDocs, offset)
+			offset++
+		}
+	}
 }
 
-func (i *Index) Last() {
+// First returns the first doccument and offset where a term occurs
+func (i *Index) First(term string) (d uint32, o uint32, ok bool) {
+	postings, ok := i.dict.getPostings(term)
+	if !ok {
+		return 0, 0, false
+	}
 
+	first := postings.head
+	return first.docID, first.offsets[0], true
 }
 
-func (i *Index) Next() {
+// Last returns the last occurence of a term
+func (i *Index) Last(term string) (d uint32, o uint32, ok bool) {
+	postings, ok := i.dict.getPostings(term)
+	if !ok {
+		return 0, 0, false
+	}
 
+	last := postings.tail
+	return last.docID, last.offsets[last.frequency-1], true
 }
 
-func (i *Index) Prev() {
+// Next returns the next occurence of a term after a given offset
+func (i *Index) Next(term string, docid uint32, offset uint32) (d uint32, o uint32, ok bool) {
+	postings, ok := i.dict.getPostings(term)
+	if !ok {
+		return 0, 0, false
+	}
 
+	for p := postings.head; p != nil; p = p.next {
+		if p.docID < docid {
+			continue
+		}
+
+		for i := 0; i < len(p.offsets); i++ {
+			if p.offsets[i] > offset || p.docID > docid {
+				return p.docID, p.offsets[i], true
+			}
+		}
+	}
+
+	return 0, 0, false
+}
+
+// Prev returns the previous occurence of a term before a given offset
+func (i *Index) Prev(term string, docid uint32, offset uint32) (d uint32, o uint32, ok bool) {
+	postings, ok := i.dict.getPostings(term)
+	if !ok {
+		return 0, 0, false
+	}
+
+	for p := postings.tail; p != nil; p = p.prev {
+		if p.docID > docid {
+			continue
+		}
+
+		for i := len(p.offsets) - 1; i >= 0; i-- {
+			if p.offsets[i] < offset || p.docID < docid {
+				return p.docID, p.offsets[i], true
+			}
+		}
+	}
+
+	return 0, 0, false
+}
+
+// NextDoc returns the next document which contains a term
+func (i *Index) NextDoc(term string, docid uint32) (d uint32, ok bool) {
+	postings, ok := i.dict.getPostings(term)
+	if !ok {
+		return 0, false
+	}
+
+	for p := postings.head; p != nil; p = p.next {
+		if p.docID > docid {
+			return p.docID, true
+		}
+	}
+
+	return 0, false
+}
+
+// PrevDoc returns the previous document which contains a term
+func (i *Index) PrevDoc(term string, docid uint32) (d uint32, ok bool) {
+	postings, ok := i.dict.getPostings(term)
+	if !ok {
+		return 0, false
+	}
+
+	for p := postings.tail; p != nil; p = p.prev {
+		if p.docID < docid {
+			return p.docID, true
+		}
+	}
+
+	return 0, false
 }
 
 func (i *Index) index(dir string) {
@@ -116,7 +227,7 @@ func (i *Index) index(dir string) {
 		}
 
 		if info.Mode().IsRegular() {
-			i.add(path)
+			i.Add(path)
 		}
 
 		return nil
@@ -128,24 +239,6 @@ func (i *Index) index(dir string) {
 	}
 
 	i.clearMemory()
-}
-
-func (i *Index) add(file string) {
-	textChannel := importer.GetTextChannel(file)
-	i.docs.add(file)
-
-	var offset uint32
-	for term := range textChannel {
-		p := i.partitions[len(i.partitions)-1]
-		if p.full() {
-			p.dump()
-			p = i.addPartition()
-		}
-
-		term = strings.ToLower(term)
-		p.add(term, i.docs.numDocs, offset)
-		offset++
-	}
 }
 
 func (i *Index) addPartition() *partition {

@@ -16,6 +16,7 @@ type posting struct {
 	frequency uint32
 	offsets   []uint32
 	next      *posting
+	prev      *posting
 }
 
 func decodePostingList(buf []byte) *postingList {
@@ -53,11 +54,15 @@ func (l *postingList) add(docID uint32, offsets ...uint32) {
 		}
 
 		if p.next == nil || (p.docID < docID && docID < p.next.docID) {
-			temp := p.next
-			p.next = &posting{docID: docID, next: temp}
-			p.next.addOffsets(offsets)
-			if temp == nil {
-				l.tail = p.next
+			next := p.next
+			current := &posting{docID: docID, next: next, prev: p}
+
+			p.next = current
+			current.addOffsets(offsets)
+			if next == nil {
+				l.tail = current
+			} else {
+				next.prev = current
 			}
 			return
 		}
@@ -71,6 +76,7 @@ func (l *postingList) push(p *posting) {
 	} else {
 		temp := l.head.next
 		p.next = temp
+		temp.prev = p
 		l.head = p
 	}
 }
