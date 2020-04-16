@@ -3,7 +3,6 @@ package indexer
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"os"
 )
@@ -11,13 +10,14 @@ import (
 type merger struct {
 	dir       string
 	output    *os.File
+	part      *partition
 	paritions []*partition
 	readers   []*indexReader
 	finished  int
 }
 
-func merge(dir string, partitions []*partition) {
-	m := merger{dir: dir, paritions: partitions}
+func merge(dir string, outID int, partitions []*partition) *partition {
+	m := merger{dir: dir, paritions: partitions, part: newPartition(dir, outID)}
 	m.createOutputFile()
 	defer m.output.Close()
 
@@ -35,6 +35,7 @@ func merge(dir string, partitions []*partition) {
 	}
 
 	m.deletePartitionFiles()
+	return m.part
 }
 
 func (m *merger) getNextTerm() (term string, readers []*indexReader) {
@@ -79,7 +80,7 @@ func (m *merger) advanceTerms(readers []*indexReader) {
 }
 
 func (m *merger) createOutputFile() {
-	path := fmt.Sprintf("%v/index.postings", m.dir)
+	path := m.part.getPath()
 	f, err := os.Create(path)
 	if err != nil {
 		log.Fatal("Could not create index file")

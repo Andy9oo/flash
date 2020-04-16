@@ -4,6 +4,7 @@ import (
 	"flash/src/utils/importer"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ const (
 	documentListLimit = 1024
 	postingsLimit     = 4096
 	dictionaryLimit   = 4096
+	chunkSize         = 1000
 )
 
 // Index datastructure
@@ -77,7 +79,7 @@ func LoadIndex(root string) (index *Index, ok bool) {
 		docs: newDocList(dir, documentListLimit),
 	}
 
-	postingsFile := fmt.Sprintf("%v/index.postings", index.dir)
+	postingsFile := index.getPostingsPath()
 	_, err := os.Stat(postingsFile)
 	if err != nil {
 		fmt.Println("No index found")
@@ -154,7 +156,32 @@ func (i *Index) addPartition() *partition {
 }
 
 func (i *Index) mergeParitions() {
-	merge(i.dir, i.partitions)
+	partitions := i.partitions
+
+	for len(partitions) != 1 {
+		numParts := len(partitions)
+		numChunks := int(math.Ceil(float64(numParts) / chunkSize))
+		chunks := make([][]*partition, 0, numChunks)
+
+		for c := 0; c < numParts; c += chunkSize {
+			if c+chunkSize >= numParts {
+				chunks = append(chunks, partitions[c:])
+			} else {
+				chunks = append(chunks, partitions[c:c+chunkSize])
+			}
+		}
+
+		partitions = make([]*partition, len(chunks))
+		for c := range chunks {
+			i.numParts++
+			partitions[c] = merge(i.dir, i.numParts, chunks[c])
+		}
+	}
+
+	i.partitions = make([]*partition, 0)
+	i.numParts = 0
+
+	os.Rename(partitions[0].getPath(), i.getPostingsPath())
 }
 
 func (i *Index) clearMemory() {
@@ -170,4 +197,8 @@ func (i *Index) createDir() {
 	if err != nil {
 		log.Fatal("Could not create index directory")
 	}
+}
+
+func (i *Index) getPostingsPath() string {
+	return fmt.Sprintf("%v/index.postings", i.dir)
 }

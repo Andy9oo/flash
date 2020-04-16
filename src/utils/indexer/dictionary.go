@@ -28,8 +28,8 @@ func loadDictionary(root string, blockSize int64) *dictionary {
 }
 
 func (d *dictionary) getPostings(term string) (*postingList, bool) {
-	indexPath := fmt.Sprintf("%v/index.postings", d.root)
-	indexReader := newIndexReader(indexPath)
+	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
+	indexReader := newIndexReader(postingsFile)
 	term = strings.ToLower(term)
 
 	if offset, ok := d.entries[term]; ok {
