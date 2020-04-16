@@ -2,7 +2,7 @@ package indexer
 
 import (
 	"encoding/binary"
-	"fmt"
+	"log"
 	"os"
 	"strings"
 )
@@ -17,7 +17,7 @@ type indexReader struct {
 func newIndexReader(path string) *indexReader {
 	f, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("Could not open file: %v\n", path)
+		log.Fatalf("Could not open file: %v\n", path)
 	}
 
 	r := &indexReader{

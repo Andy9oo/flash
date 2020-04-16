@@ -88,6 +88,22 @@ func LoadIndex(root string) (index *Index, ok bool) {
 	return index, true
 }
 
+func (i *Index) First() {
+
+}
+
+func (i *Index) Last() {
+
+}
+
+func (i *Index) Next() {
+
+}
+
+func (i *Index) Prev() {
+
+}
+
 func (i *Index) index(dir string) {
 	visit := func(path string, info os.FileInfo, err error) error {
 		if info.Name()[0:1] == "." {
@@ -132,7 +148,6 @@ func (i *Index) add(file string) {
 
 func (i *Index) addPartition() *partition {
 	i.numParts++
-
 	p := newPartition(i.dir, i.numParts)
 	i.partitions = append(i.partitions, p)
 	return p

@@ -71,6 +71,7 @@ func (p *partition) dump() {
 	}
 
 	buf.WriteTo(f)
+	p.postings = nil
 }
 
 func (p *partition) getPath() string {
