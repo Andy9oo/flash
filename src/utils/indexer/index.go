@@ -57,16 +57,25 @@ func BuildIndex(root string) *Index {
 	spinner, _ := yacspin.New(cfg)
 	spinner.Start()
 
+	start := time.Now()
 	spinner.Message("Indexing Directory")
 	i.index(root)
+	indexDone := time.Now()
 
 	spinner.Message("Merging Partitions")
 	i.mergeParitions()
+	mergeDone := time.Now()
 
 	spinner.Message("Loading Dictionary")
 	i.dict = loadDictionary(i.dir, dictionaryLimit)
-
+	dictDone := time.Now()
 	spinner.Stop()
+
+	indexTime := indexDone.Sub(start)
+	mergeTime := mergeDone.Sub(indexDone)
+	dictTime := dictDone.Sub(mergeDone)
+
+	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\n", indexTime, mergeTime, dictTime)
 	return &i
 }
 
@@ -121,38 +130,46 @@ func (i *Index) Add(path string) {
 
 // First returns the first doccument and offset where a term occurs
 func (i *Index) First(term string) (d uint32, o uint32, ok bool) {
-	postings, ok := i.dict.getPostings(term)
+	pl, ok := i.dict.getPostings(term)
 	if !ok {
 		return 0, 0, false
 	}
 
-	first := postings.head
-	return first.docID, first.offsets[0], true
+	docs := pl.getDocs()
+	firstID := docs[0]
+	first := pl.postings[firstID]
+
+	return firstID, first.offsets[0], true
 }
 
 // Last returns the last occurence of a term
 func (i *Index) Last(term string) (d uint32, o uint32, ok bool) {
-	postings, ok := i.dict.getPostings(term)
+	pl, ok := i.dict.getPostings(term)
 	if !ok {
 		return 0, 0, false
 	}
 
-	last := postings.tail
-	return last.docID, last.offsets[last.frequency-1], true
+	docs := pl.getDocs()
+	lastID := docs[len(docs)-1]
+	last := pl.postings[lastID]
+
+	return lastID, last.offsets[last.frequency-1], true
 }
 
 // Next returns the next occurence of a term after a given offset
 func (i *Index) Next(term string, docid uint32, offset uint32) (d uint32, o uint32, ok bool) {
-	postings, ok := i.dict.getPostings(term)
+	pl, ok := i.dict.getPostings(term)
 	if !ok {
 		return 0, 0, false
 	}
 
-	for p := postings.head; p != nil; p = p.next {
-		if p.docID < docid {
+	docs := pl.getDocs()
+	for i := 0; i < len(docs); i++ {
+		if docs[i] < docid {
 			continue
 		}
 
+		p := pl.postings[docs[i]]
 		for i := 0; i < len(p.offsets); i++ {
 			if p.offsets[i] > offset || p.docID > docid {
 				return p.docID, p.offsets[i], true
@@ -165,16 +182,18 @@ func (i *Index) Next(term string, docid uint32, offset uint32) (d uint32, o uint
 
 // Prev returns the previous occurence of a term before a given offset
 func (i *Index) Prev(term string, docid uint32, offset uint32) (d uint32, o uint32, ok bool) {
-	postings, ok := i.dict.getPostings(term)
+	pl, ok := i.dict.getPostings(term)
 	if !ok {
 		return 0, 0, false
 	}
 
-	for p := postings.tail; p != nil; p = p.prev {
-		if p.docID > docid {
+	docs := pl.getDocs()
+	for i := len(docs) - 1; i >= 0; i-- {
+		if docs[i] > docid {
 			continue
 		}
 
+		p := pl.postings[docs[i]]
 		for i := len(p.offsets) - 1; i >= 0; i-- {
 			if p.offsets[i] < offset || p.docID < docid {
 				return p.docID, p.offsets[i], true
@@ -187,14 +206,15 @@ func (i *Index) Prev(term string, docid uint32, offset uint32) (d uint32, o uint
 
 // NextDoc returns the next document which contains a term
 func (i *Index) NextDoc(term string, docid uint32) (d uint32, ok bool) {
-	postings, ok := i.dict.getPostings(term)
+	pl, ok := i.dict.getPostings(term)
 	if !ok {
 		return 0, false
 	}
 
-	for p := postings.head; p != nil; p = p.next {
-		if p.docID > docid {
-			return p.docID, true
+	docs := pl.getDocs()
+	for i := 0; i < len(docs); i++ {
+		if docs[i] > docid {
+			return docs[i], true
 		}
 	}
 
@@ -203,14 +223,15 @@ func (i *Index) NextDoc(term string, docid uint32) (d uint32, ok bool) {
 
 // PrevDoc returns the previous document which contains a term
 func (i *Index) PrevDoc(term string, docid uint32) (d uint32, ok bool) {
-	postings, ok := i.dict.getPostings(term)
+	pl, ok := i.dict.getPostings(term)
 	if !ok {
 		return 0, false
 	}
 
-	for p := postings.tail; p != nil; p = p.prev {
-		if p.docID < docid {
-			return p.docID, true
+	docs := pl.getDocs()
+	for i := len(docs) - 1; i >= 0; i-- {
+		if docs[i] < docid {
+			return docs[i], true
 		}
 	}
 
@@ -228,6 +249,7 @@ func (i *Index) index(dir string) {
 
 		if info.Mode().IsRegular() {
 			i.Add(path)
+			fmt.Println("Adding Doc", path)
 		}
 
 		return nil

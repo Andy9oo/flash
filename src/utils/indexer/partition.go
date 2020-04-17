@@ -28,7 +28,7 @@ func newPartition(dir string, partitionNumber int) *partition {
 
 func (p *partition) add(term string, docID uint32, offset uint32) {
 	if _, ok := p.postings[term]; !ok {
-		p.postings[term] = new(postingList)
+		p.postings[term] = newPostingList()
 	}
 
 	p.postings[term].add(docID, offset)
@@ -36,7 +36,7 @@ func (p *partition) add(term string, docID uint32, offset uint32) {
 }
 
 func (p *partition) full() bool {
-	return len(p.postings) >= postingsLimit
+	return p.numPostings >= postingsLimit
 }
 
 func (p *partition) dump() {

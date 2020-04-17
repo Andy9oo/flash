@@ -4,23 +4,30 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"sort"
 )
 
 type postingList struct {
-	head *posting
-	tail *posting
+	postings map[uint32]*posting
+	docs     []uint32
+	sorted   bool
 }
 
 type posting struct {
 	docID     uint32
 	frequency uint32
 	offsets   []uint32
-	next      *posting
-	prev      *posting
+}
+
+func newPostingList() *postingList {
+	l := postingList{
+		postings: make(map[uint32]*posting),
+	}
+	return &l
 }
 
 func decodePostingList(buf []byte) *postingList {
-	l := new(postingList)
+	l := newPostingList()
 
 	offset := 0
 	for offset < len(buf) {
@@ -40,45 +47,23 @@ func decodePostingList(buf []byte) *postingList {
 }
 
 func (l *postingList) add(docID uint32, offsets ...uint32) {
-	if l.head == nil || docID < l.head.docID {
-		p := &posting{docID: docID}
-		p.addOffsets(offsets)
-		l.push(p)
-		return
+	if _, ok := l.postings[docID]; !ok {
+		l.postings[docID] = &posting{docID: docID}
+		l.docs = append(l.docs, docID)
+		l.sorted = false
 	}
 
-	for p := l.head; p != nil; p = p.next {
-		if p.docID == docID {
-			p.addOffsets(offsets)
-			return
-		}
-
-		if p.next == nil || (p.docID < docID && docID < p.next.docID) {
-			next := p.next
-			current := &posting{docID: docID, next: next, prev: p}
-
-			p.next = current
-			current.addOffsets(offsets)
-			if next == nil {
-				l.tail = current
-			} else {
-				next.prev = current
-			}
-			return
-		}
-	}
+	p := l.postings[docID]
+	p.addOffsets(offsets)
 }
 
-func (l *postingList) push(p *posting) {
-	if l.head == nil {
-		l.head = p
-		l.tail = p
-	} else {
-		temp := l.head.next
-		p.next = temp
-		temp.prev = p
-		l.head = p
+func (l *postingList) getDocs() []uint32 {
+	if !l.sorted {
+		sort.Slice(l.docs, func(i, j int) bool { return l.docs[i] < l.docs[j] })
+		l.sorted = true
 	}
+
+	return l.docs
 }
 
 func (p *posting) addOffsets(offsets []uint32) {
@@ -88,7 +73,10 @@ func (p *posting) addOffsets(offsets []uint32) {
 
 func (l *postingList) String() string {
 	var out string
-	for p := l.head; p != nil; p = p.next {
+
+	docs := l.getDocs()
+	for _, id := range docs {
+		p := l.postings[id]
 		out += fmt.Sprintf("(%v, %v, [", p.docID, p.frequency)
 		for i := 0; i < len(p.offsets); i++ {
 			out += fmt.Sprintf("%v", p.offsets[i])
@@ -103,7 +91,10 @@ func (l *postingList) String() string {
 
 func (l *postingList) Bytes() []byte {
 	buf := new(bytes.Buffer)
-	for p := l.head; p != nil; p = p.next {
+
+	docs := l.getDocs()
+	for _, id := range docs {
+		p := l.postings[id]
 		binary.Write(buf, binary.LittleEndian, p.docID)
 		binary.Write(buf, binary.LittleEndian, p.frequency)
 		for i := 0; i < len(p.offsets); i++ {

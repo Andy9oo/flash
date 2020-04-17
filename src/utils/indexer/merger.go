@@ -56,13 +56,14 @@ func (m *merger) getNextTerm() (term string, readers []*indexReader) {
 }
 
 func (m *merger) mergePostings(readers []*indexReader) {
-	var plist postingList
+	plist := newPostingList()
 	for i := 0; i < len(readers); i++ {
 		readers[i].fetchPostingsLength()
 		l := decodePostingList(readers[i].fetchPostings())
 
-		for p := l.head; p != nil; p = p.next {
-			plist.add(p.docID, p.offsets...)
+		docs := l.getDocs()
+		for _, id := range docs {
+			plist.add(id, l.postings[id].offsets...)
 		}
 	}
 
