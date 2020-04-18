@@ -13,7 +13,7 @@ type partition struct {
 	dir             string
 	partitionNumber int
 	postings        map[string]*postingList
-	numPostings     uint32
+	size            int
 }
 
 func newPartition(dir string, partitionNumber int) *partition {
@@ -29,14 +29,15 @@ func newPartition(dir string, partitionNumber int) *partition {
 func (p *partition) add(term string, docID uint32, offset uint32) {
 	if _, ok := p.postings[term]; !ok {
 		p.postings[term] = newPostingList()
+		p.size += 8
 	}
 
 	p.postings[term].add(docID, offset)
-	p.numPostings++
+	p.size += 4
 }
 
 func (p *partition) full() bool {
-	return p.numPostings >= postingsLimit
+	return p.size >= partitionLimit
 }
 
 func (p *partition) dump() {
@@ -72,7 +73,7 @@ func (p *partition) dump() {
 
 	buf.WriteTo(f)
 	p.postings = nil
-	p.numPostings = 0
+	p.size = 0
 }
 
 func (p *partition) getPath() string {

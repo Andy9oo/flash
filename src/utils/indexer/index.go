@@ -13,9 +13,17 @@ import (
 	"github.com/theckman/yacspin"
 )
 
+// Byte sizes
+const (
+	_      = iota
+	KB int = 1 << (10 * iota)
+	MB
+	GB
+)
+
 const (
 	documentListLimit = 1 << 10
-	postingsLimit     = 1 << 20
+	partitionLimit    = 250 * MB
 	dictionaryLimit   = 1 << 20
 	chunkSize         = 1 << 10
 )
@@ -249,7 +257,6 @@ func (i *Index) index(dir string) {
 
 		if info.Mode().IsRegular() {
 			i.Add(path)
-			fmt.Println("Adding Doc", path)
 		}
 
 		return nil
