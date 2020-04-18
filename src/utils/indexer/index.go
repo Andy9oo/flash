@@ -104,6 +104,7 @@ func LoadIndex(root string) (index *Index, ok bool) {
 	}
 
 	index.dict = loadDictionary(dir, dictionaryLimit)
+	// index.docs = loadDocList(dir)
 	return index, true
 }
 
@@ -119,9 +120,8 @@ func (i *Index) Add(path string) {
 		i.index(path)
 	} else {
 		textChannel := importer.GetTextChannel(path)
-		i.docs.add(path)
-
 		var offset uint32
+
 		for term := range textChannel {
 			p := i.partitions[len(i.partitions)-1]
 			if p.full() {
@@ -133,6 +133,8 @@ func (i *Index) Add(path string) {
 			p.add(term, i.docs.numDocs, offset)
 			offset++
 		}
+
+		i.docs.add(path, offset)
 	}
 }
 
@@ -244,6 +246,39 @@ func (i *Index) PrevDoc(term string, docid uint32) (d uint32, ok bool) {
 	}
 
 	return 0, false
+}
+
+// Score returns the score for a doc using the BM25 ranking function
+func (i *Index) Score(query []string, doc uint32, k float64, b float64) float64 {
+	score := 0.0
+
+	N := float64(i.docs.numDocs)
+	lavg := float64(i.docs.totalLength) / float64(i.docs.numDocs)
+
+	for t := range query {
+		d, ok := i.docs.fetchDoc(doc)
+		if !ok {
+			continue
+		}
+
+		Nt := float64(i.dict.getNumDocs(query[t]))
+		f := float64(i.dict.getFrequency(query[t], doc))
+		l := float64(d.length)
+
+		TF := (f * (k + 1)) / (f + k*((1-b)+b*(l/lavg)))
+		score += math.Log(N/Nt) * TF
+	}
+
+	return score
+}
+
+// GetPath returns the path of a given file
+func (i *Index) GetPath(docID uint32) (string, bool) {
+	if doc, ok := i.docs.fetchDoc(docID); ok {
+		return doc.path, ok
+	}
+
+	return "", false
 }
 
 func (i *Index) index(dir string) {

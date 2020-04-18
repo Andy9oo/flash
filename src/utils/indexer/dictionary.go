@@ -64,6 +64,25 @@ func (d *dictionary) getPostings(term string) (*postingList, bool) {
 	return indexReader.findPostings(term, start, end)
 }
 
+func (d *dictionary) getNumDocs(term string) int {
+	pl, ok := d.getPostings(term)
+	if !ok {
+		return 0
+	}
+
+	return len(pl.docs)
+}
+
+func (d *dictionary) getFrequency(term string, doc uint32) int {
+	if pl, ok := d.getPostings(term); ok {
+		if postings, ok := pl.postings[doc]; ok {
+			return int(postings.frequency)
+		}
+	}
+
+	return 0
+}
+
 func (d *dictionary) loadOffsets() {
 	f, err := os.Open(d.path)
 	if err != nil {
