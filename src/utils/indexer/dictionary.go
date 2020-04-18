@@ -1,6 +1,8 @@
 package indexer
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"sort"
@@ -23,7 +25,14 @@ func loadDictionary(root string, blockSize int64) *dictionary {
 		entries:   make(map[string]int64),
 	}
 
-	d.fecthOffsets()
+	_, err := os.Stat(path)
+	if err != nil {
+		d.calculateOffsets()
+		d.dump()
+	} else {
+		d.loadOffsets()
+	}
+
 	return &d
 }
 
@@ -55,7 +64,33 @@ func (d *dictionary) getPostings(term string) (*postingList, bool) {
 	return indexReader.findPostings(term, start, end)
 }
 
-func (d *dictionary) fecthOffsets() {
+func (d *dictionary) loadOffsets() {
+	f, err := os.Open(d.path)
+	if err != nil {
+		fmt.Println("Could not open dictionary file")
+		return
+	}
+	defer f.Close()
+
+	buf32 := make([]byte, 4)
+	buf64 := make([]byte, 8)
+
+	f.Read(buf32)
+	numTerms := binary.LittleEndian.Uint32(buf32)
+	for i := uint32(0); i < numTerms; i++ {
+		f.Read(buf32)
+		tlen := binary.LittleEndian.Uint32(buf32)
+
+		tbuf := make([]byte, tlen)
+		f.Read(tbuf)
+
+		f.Read(buf64)
+		offset := int64(binary.LittleEndian.Uint64(buf64))
+		d.entries[string(tbuf)] = offset
+	}
+}
+
+func (d *dictionary) calculateOffsets() {
 	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
 	reader := newIndexReader(postingsFile)
 
@@ -87,8 +122,13 @@ func (d *dictionary) dump() {
 	}
 	defer f.Close()
 
-	for key, val := range d.entries {
-		f.WriteString(key)
-		f.WriteString(fmt.Sprintf(":%v\n", val))
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, uint32(len(d.entries)))
+	for key, offset := range d.entries {
+		binary.Write(buf, binary.LittleEndian, uint32(len(key)))
+		binary.Write(buf, binary.LittleEndian, []byte(key))
+		binary.Write(buf, binary.LittleEndian, uint64(offset))
 	}
+
+	buf.WriteTo(f)
 }
