@@ -10,7 +10,7 @@ import (
 
 type doclist struct {
 	path        string
-	list        map[uint32]*document
+	list        map[uint32]document
 	limit       int
 	numDocs     uint32
 	totalLength int
@@ -26,7 +26,7 @@ func newDocList(root string, limit int) *doclist {
 
 	l := doclist{
 		path:  path,
-		list:  make(map[uint32]*document),
+		list:  make(map[uint32]document),
 		limit: limit,
 	}
 
@@ -34,7 +34,7 @@ func newDocList(root string, limit int) *doclist {
 }
 
 func (d *doclist) add(file string, length uint32) {
-	d.list[d.numDocs] = &document{
+	d.list[d.numDocs] = document{
 		path:   file,
 		length: length,
 	}
@@ -69,13 +69,13 @@ func (d *doclist) dump() {
 	}
 
 	buf.WriteTo(f)
-	d.list = make(map[uint32]*document)
+	d.list = make(map[uint32]document)
 }
 
 func (d *doclist) fetchDoc(id uint32) (doc *document, ok bool) {
 	// Check if the id is in memory
 	if doc, ok := d.list[id]; ok {
-		return doc, true
+		return &doc, true
 	}
 
 	f, err := os.Open(d.path)

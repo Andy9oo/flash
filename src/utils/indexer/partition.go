@@ -12,7 +12,7 @@ import (
 type partition struct {
 	dir             string
 	partitionNumber int
-	postings        map[string]*postingList
+	postings        map[string]postingList
 	size            int
 }
 
@@ -20,7 +20,7 @@ func newPartition(dir string, partitionNumber int) *partition {
 	p := partition{
 		dir:             dir,
 		partitionNumber: partitionNumber,
-		postings:        make(map[string]*postingList),
+		postings:        make(map[string]postingList),
 	}
 
 	return &p
@@ -31,8 +31,8 @@ func (p *partition) add(term string, docID uint32, offset uint32) {
 		p.postings[term] = newPostingList()
 		p.size += 8
 	}
-
-	p.postings[term].add(docID, offset)
+	pl := p.postings[term]
+	pl.add(docID, offset)
 	p.size += 4
 }
 
@@ -63,12 +63,13 @@ func (p *partition) dump() {
 
 	buf := new(bytes.Buffer)
 	for _, term := range terms {
-		postings := p.postings[term].Bytes()
+		pl := p.postings[term]
+		postings := pl.Bytes()
 
 		binary.Write(buf, binary.LittleEndian, uint32(len(term)))
 		binary.Write(buf, binary.LittleEndian, []byte(term))
-		binary.Write(buf, binary.LittleEndian, uint32(len(postings)))
-		binary.Write(buf, binary.LittleEndian, postings)
+		binary.Write(buf, binary.LittleEndian, uint32(postings.Len()))
+		binary.Write(buf, binary.LittleEndian, postings.Bytes())
 	}
 
 	buf.WriteTo(f)
