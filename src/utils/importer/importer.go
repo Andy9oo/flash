@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // GetTextChannel Returns a channel from which the text of a file is exported
 func GetTextChannel(filepath string) chan string {
-	channel := make(chan string)
-
+	channel := make(chan string, 1000)
 	go getText(filepath, channel)
 
 	return channel
@@ -29,6 +29,6 @@ func getText(filepath string, c chan string) {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanWords)
 	for scanner.Scan() {
-		c <- scanner.Text()
+		c <- strings.ToLower(scanner.Text())
 	}
 }

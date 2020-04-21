@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/theckman/yacspin"
@@ -129,7 +128,6 @@ func (i *Index) Add(path string) {
 				p = i.addPartition()
 			}
 
-			term = strings.ToLower(term)
 			p.add(term, i.docs.numDocs, offset)
 			offset++
 		}

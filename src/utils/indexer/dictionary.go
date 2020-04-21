@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 )
 
 type dictionary struct {
@@ -39,7 +38,6 @@ func loadDictionary(root string, blockSize int64) *dictionary {
 func (d *dictionary) getPostings(term string) (*postingList, bool) {
 	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
 	indexReader := newIndexReader(postingsFile)
-	term = strings.ToLower(term)
 
 	if offset, ok := d.entries[term]; ok {
 		_, postings := indexReader.fetchEntry(offset)

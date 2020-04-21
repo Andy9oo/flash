@@ -28,6 +28,7 @@ func NewEngine(index *indexer.Index) *Engine {
 
 // Search uses the engine to search an index
 func (e *Engine) Search(query string, k int) []*Result {
+	query = strings.ToLower(query)
 	terms := strings.Split(query, " ")
 
 	var results []*Result
