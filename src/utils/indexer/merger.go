@@ -68,8 +68,8 @@ func (m *merger) mergePostings(readers []*indexReader) {
 	}
 
 	buf := plist.Bytes()
-	binary.Write(m.output, binary.LittleEndian, uint32(len(buf)))
-	m.output.Write(buf)
+	binary.Write(m.output, binary.LittleEndian, uint32(buf.Len()))
+	m.output.Write(buf.Bytes())
 }
 
 func (m *merger) advanceTerms(readers []*indexReader) {
