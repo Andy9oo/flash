@@ -12,7 +12,7 @@ import (
 type partition struct {
 	dir             string
 	partitionNumber int
-	postings        map[string]postingList
+	postings        map[string]*postingList
 	size            int
 }
 
@@ -20,7 +20,7 @@ func newPartition(dir string, partitionNumber int) *partition {
 	p := partition{
 		dir:             dir,
 		partitionNumber: partitionNumber,
-		postings:        make(map[string]postingList),
+		postings:        make(map[string]*postingList),
 	}
 
 	return &p
@@ -31,8 +31,7 @@ func (p *partition) add(term string, docID uint32, offset uint32) {
 		p.postings[term] = newPostingList()
 		p.size += 8
 	}
-	pl := p.postings[term]
-	pl.add(docID, offset)
+	p.postings[term].add(docID, offset)
 	p.size += 4
 }
 

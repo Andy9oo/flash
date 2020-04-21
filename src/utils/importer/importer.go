@@ -9,7 +9,7 @@ import (
 
 // GetTextChannel Returns a channel from which the text of a file is exported
 func GetTextChannel(filepath string) chan string {
-	channel := make(chan string, 1000)
+	channel := make(chan string, 100)
 	go getText(filepath, channel)
 
 	return channel

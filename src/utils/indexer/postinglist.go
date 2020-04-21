@@ -8,7 +8,7 @@ import (
 )
 
 type postingList struct {
-	postings map[uint32]posting
+	postings map[uint32]*posting
 	docs     []uint32
 	sorted   bool
 }
@@ -19,12 +19,11 @@ type posting struct {
 	offsets   []uint32
 }
 
-func newPostingList() postingList {
+func newPostingList() *postingList {
 	l := postingList{
-		postings: make(map[uint32]posting),
+		postings: make(map[uint32]*posting),
 	}
-
-	return l
+	return &l
 }
 
 func decodePostingList(buf []byte) *postingList {
@@ -44,12 +43,12 @@ func decodePostingList(buf []byte) *postingList {
 			offset += 4
 		}
 	}
-	return &l
+	return l
 }
 
 func (l *postingList) add(docID uint32, offsets ...uint32) {
 	if _, ok := l.postings[docID]; !ok {
-		l.postings[docID] = posting{docID: docID}
+		l.postings[docID] = &posting{docID: docID}
 		l.docs = append(l.docs, docID)
 		l.sorted = false
 	}
