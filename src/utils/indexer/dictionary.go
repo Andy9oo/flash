@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -88,22 +89,17 @@ func (d *dictionary) loadOffsets() {
 		return
 	}
 	defer f.Close()
+	reader := bufio.NewReader(f)
 
-	buf32 := make([]byte, 4)
-	buf64 := make([]byte, 8)
-
-	f.Read(buf32)
-	numTerms := binary.LittleEndian.Uint32(buf32)
+	numTerms := readInt32(reader)
 	for i := uint32(0); i < numTerms; i++ {
-		f.Read(buf32)
-		tlen := binary.LittleEndian.Uint32(buf32)
+		tlen := readInt32(reader)
 
 		tbuf := make([]byte, tlen)
-		f.Read(tbuf)
+		reader.Read(tbuf)
 
-		f.Read(buf64)
-		offset := int64(binary.LittleEndian.Uint64(buf64))
-		d.entries[string(tbuf)] = offset
+		offset := readInt64(reader)
+		d.entries[string(tbuf)] = int64(offset)
 	}
 }
 

@@ -21,9 +21,10 @@ const (
 )
 
 const (
-	documentListLimit = 1 << 10
+	documentListLimit = 1 << 20
 	partitionLimit    = 250 * MB
 	dictionaryLimit   = 1 << 20
+	blockSize         = 1 << 10
 	chunkSize         = 1 << 10
 )
 
@@ -76,35 +77,37 @@ func BuildIndex(root string) *Index {
 	spinner.Message("Loading Dictionary")
 	i.dict = loadDictionary(i.dir, dictionaryLimit)
 	dictDone := time.Now()
+
+	spinner.Message("Loading Documents")
+	i.docs.calculateOffsets(blockSize)
+	docsDone := time.Now()
+
 	spinner.Stop()
 
 	indexTime := indexDone.Sub(start)
 	mergeTime := mergeDone.Sub(indexDone)
 	dictTime := dictDone.Sub(mergeDone)
+	docTime := docsDone.Sub(dictDone)
 
-	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\n", indexTime, mergeTime, dictTime)
+	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\nDocs: %v\n", indexTime, mergeTime, dictTime, docTime)
 	return &i
 }
 
 // LoadIndex opens the index for the given root file
-func LoadIndex(root string) (index *Index, ok bool) {
+func LoadIndex(root string) (i *Index, ok bool) {
 	dir := fmt.Sprintf("%v/.index", root)
 
-	index = &Index{
-		dir:  dir,
-		docs: newDocList(dir, documentListLimit),
-	}
-
-	postingsFile := index.getPostingsPath()
-	_, err := os.Stat(postingsFile)
+	i = &Index{dir: dir}
+	_, err := os.Stat(i.getPostingsPath())
 	if err != nil {
 		fmt.Println("No index found")
 		return nil, false
 	}
 
-	index.dict = loadDictionary(dir, dictionaryLimit)
-	// index.docs = loadDocList(dir)
-	return index, true
+	i.dict = loadDictionary(dir, dictionaryLimit)
+	i.docs = loadDocList(dir, documentListLimit, blockSize)
+
+	return i, true
 }
 
 // Add adds the given file or directory to the index
@@ -128,7 +131,7 @@ func (i *Index) Add(path string) {
 				p = i.addPartition()
 			}
 
-			p.add(term, i.docs.numDocs, offset)
+			p.add(term, i.docs.totalDocs, offset)
 			offset++
 		}
 
@@ -250,8 +253,8 @@ func (i *Index) PrevDoc(term string, docid uint32) (d uint32, ok bool) {
 func (i *Index) Score(query []string, doc uint32, k float64, b float64) float64 {
 	score := 0.0
 
-	N := float64(i.docs.numDocs)
-	lavg := float64(i.docs.totalLength) / float64(i.docs.numDocs)
+	N := float64(i.docs.totalDocs)
+	lavg := float64(i.docs.totalLength) / float64(i.docs.totalDocs)
 
 	for t := range query {
 		d, ok := i.docs.fetchDoc(doc)
@@ -343,7 +346,7 @@ func (i *Index) clearMemory() {
 	for _, p := range i.partitions {
 		p.dump()
 	}
-	i.docs.dump()
+	i.docs.dumpFiles()
 }
 
 func (i *Index) createDir() {
