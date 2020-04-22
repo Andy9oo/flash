@@ -18,3 +18,4 @@ pkg
 # Ignore index files
 *.index
 *.txt
+*.profile
