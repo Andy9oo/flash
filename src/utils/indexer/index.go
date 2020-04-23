@@ -250,27 +250,22 @@ func (i *Index) PrevDoc(term string, docid uint32) (d uint32, ok bool) {
 }
 
 // Score returns the score for a doc using the BM25 ranking function
-func (i *Index) Score(query []string, doc uint32, k float64, b float64) float64 {
-	score := 0.0
-
+func (i *Index) Score(term string, doc uint32, k float64, b float64) float64 {
 	N := float64(i.docs.totalDocs)
 	lavg := float64(i.docs.totalLength) / float64(i.docs.totalDocs)
 
-	for t := range query {
-		d, ok := i.docs.fetchDoc(doc)
-		if !ok {
-			continue
-		}
-
-		Nt := float64(i.dict.getNumDocs(query[t]))
-		f := float64(i.dict.getFrequency(query[t], doc))
-		l := float64(d.length)
-
-		TF := (f * (k + 1)) / (f + k*((1-b)+b*(l/lavg)))
-		score += math.Log(N/Nt) * TF
+	d, ok := i.docs.fetchDoc(doc)
+	if !ok {
+		return 0
 	}
 
-	return score
+	Nt := float64(i.dict.getNumDocs(term))
+	f := float64(i.dict.getFrequency(term, doc))
+	l := float64(d.length)
+
+	TF := (f * (k + 1)) / (f + k*((1-b)+b*(l/lavg)))
+
+	return math.Log(N/Nt) * TF
 }
 
 // GetPath returns the path of a given file

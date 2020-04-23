@@ -1,6 +1,7 @@
 package search
 
 import (
+	"container/heap"
 	"flash/src/utils/indexer"
 	"sort"
 	"strings"
@@ -26,45 +27,61 @@ func NewEngine(index *indexer.Index) *Engine {
 	return &e
 }
 
-// Search uses the engine to search an index
+// Search query
 func (e *Engine) Search(query string, k int) []*Result {
-	query = strings.ToLower(query)
-	terms := strings.Split(query, " ")
+	results, terms := e.initHeaps(query, k)
 
-	var results []*Result
-	doc, ok := e.getNextDoc(terms, 0, true)
-	for ok {
-		results = append(results, &Result{
-			ID:    doc,
-			Score: e.index.Score(terms, doc, 1.2, 0.75),
-		})
+	for terms[0].ok {
+		doc := terms[0].nextDoc
+		score := 0.0
+		for terms[0].nextDoc == doc {
+			t := terms[0].value
+			score += e.index.Score(t, doc, 1.2, 0.75)
 
-		doc, ok = e.getNextDoc(terms, doc, false)
+			terms[0].nextDoc, terms[0].ok = e.index.NextDoc(t, doc)
+			heap.Fix(&terms, 0)
+		}
+
+		if score > results[0].Score {
+			results[0].ID = doc
+			results[0].Score = score
+			heap.Fix(&results, 0)
+		}
 	}
 
-	sort.Slice(results, func(i, j int) bool { return results[i].Score > results[j].Score })
-
-	if len(results) < k {
-		return results
+	var finalResults []*Result
+	for i := range results {
+		if results[i].Score != 0 {
+			finalResults = append(finalResults, &results[i])
+		}
 	}
 
-	return results[:k]
+	sort.Slice(finalResults, func(i, j int) bool { return finalResults[i].Score > finalResults[j].Score })
+
+	return finalResults
 }
 
-func (e *Engine) getNextDoc(terms []string, doc uint32, first bool) (selected uint32, ok bool) {
-	docSelected := false
-	var d uint32
-	for i := 0; i < len(terms); i++ {
-		if first {
-			d, _, ok = e.index.First(terms[i])
-		} else {
-			d, ok = e.index.NextDoc(terms[i], doc)
-		}
-
-		if ok && (d < selected || !docSelected) {
-			selected = d
-			docSelected = true
-		}
+func (e *Engine) initHeaps(query string, k int) (resultHeap, termHeap) {
+	var results resultHeap
+	for i := 0; i < k; i++ {
+		heap.Push(&results, Result{
+			ID:    0,
+			Score: 0,
+		})
 	}
-	return selected, docSelected
+
+	terms := strings.Split(query, " ")
+
+	var theap termHeap
+	for _, t := range terms {
+		doc, _, ok := e.index.First(t)
+
+		heap.Push(&theap, term{
+			value:   t,
+			nextDoc: doc,
+			ok:      ok,
+		})
+	}
+
+	return results, theap
 }
