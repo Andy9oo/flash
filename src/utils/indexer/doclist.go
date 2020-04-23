@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -71,17 +70,15 @@ func (d *doclist) loadInfo(blockSize int64) {
 	}
 	defer f.Close()
 
-	reader := bufio.NewReader(f)
-
 	// Load info
-	d.totalDocs = readInt32(reader)
-	d.totalLength = int(readInt32(reader))
-	numOffsets := readInt32(reader)
+	d.totalDocs = readInt32(f)
+	d.totalLength = int(readInt32(f))
+	numOffsets := readInt32(f)
 
 	// Load offsets
 	for i := uint32(0); i < numOffsets; i++ {
-		id := readInt32(reader)
-		offset := readInt64(reader)
+		id := readInt32(f)
+		offset := readInt64(f)
 		d.offsets[id] = int64(offset)
 	}
 }

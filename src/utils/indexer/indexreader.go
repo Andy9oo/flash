@@ -100,6 +100,11 @@ func (r *indexReader) findPostings(term string, start int64, end int64) (posting
 	return nil, false
 }
 
+func (r *indexReader) close() {
+	r.file.Close()
+	r.done = true
+}
+
 func readInt32(reader io.Reader) uint32 {
 	buf := make([]byte, 4)
 	reader.Read(buf)

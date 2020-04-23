@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -39,6 +38,7 @@ func loadDictionary(root string, blockSize int64) *dictionary {
 func (d *dictionary) getPostings(term string) (*postingList, bool) {
 	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
 	indexReader := newIndexReader(postingsFile)
+	defer indexReader.close()
 
 	if offset, ok := d.entries[term]; ok {
 		_, postings := indexReader.fetchEntry(offset)
@@ -89,16 +89,15 @@ func (d *dictionary) loadOffsets() {
 		return
 	}
 	defer f.Close()
-	reader := bufio.NewReader(f)
 
-	numTerms := readInt32(reader)
+	numTerms := readInt32(f)
 	for i := uint32(0); i < numTerms; i++ {
-		tlen := readInt32(reader)
+		tlen := readInt32(f)
 
 		tbuf := make([]byte, tlen)
-		reader.Read(tbuf)
+		f.Read(tbuf)
 
-		offset := readInt64(reader)
+		offset := readInt64(f)
 		d.entries[string(tbuf)] = int64(offset)
 	}
 }
