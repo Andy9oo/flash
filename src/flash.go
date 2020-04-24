@@ -33,5 +33,5 @@ func main() {
 		fmt.Printf("%v. %v (%v)\n", i+1, path, results[i].Score)
 	}
 
-	fmt.Printf("\nTook: %v\n", time.Since(start))
+	fmt.Printf("\nTotal Time: %v\n", time.Since(start))
 }
