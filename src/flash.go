@@ -24,7 +24,9 @@ func main() {
 
 	fmt.Println("Searching...")
 	searchStart := time.Now()
-	results := engine.Search("stellenbosch university", 10)
+
+	results := engine.Search(os.Args[2], 10)
+
 	fmt.Printf("Found %v results in %v:\n", len(results), time.Since(searchStart))
 	for i := range results {
 		path, _, _ := index.GetDocInfo(results[i].ID)
