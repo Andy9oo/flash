@@ -1,11 +1,17 @@
 package search
 
+import (
+	"flash/src/utils/indexer"
+	"math"
+)
+
 type termHeap []term
 
 type term struct {
 	value     string
 	frequency uint32
 	nextDoc   uint32
+	maxScore  float64
 	ok        bool
 }
 
@@ -23,4 +29,8 @@ func (h *termHeap) Pop() interface{} {
 	x := old[n-1]
 	*h = old[0 : n-1]
 	return x
+}
+
+func calculateMaxScore(info *indexer.IndexInfo, numDocs uint32) float64 {
+	return (k1 + 1) * math.Log(float64(info.NumDocs)/float64(numDocs))
 }

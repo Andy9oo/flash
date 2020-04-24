@@ -37,6 +37,12 @@ type Index struct {
 	numParts   int
 }
 
+// IndexInfo contains information about an index
+type IndexInfo struct {
+	NumDocs     uint32
+	TotalLength int
+}
+
 // BuildIndex builds a new index for the given directory
 func BuildIndex(root string) *Index {
 	dir := fmt.Sprintf("%v/.index", root)
@@ -139,24 +145,6 @@ func (i *Index) Add(path string) {
 	}
 }
 
-// Score returns the score for a doc using the BM25 ranking function
-func (i *Index) Score(doc, numDocs, frequency uint32, k float64, b float64) float64 {
-	N := float64(i.docs.totalDocs)
-	lavg := float64(i.docs.totalLength) / float64(i.docs.totalDocs)
-
-	d, ok := i.docs.fetchDoc(doc)
-	if !ok {
-		return 0
-	}
-
-	Nt := float64(numDocs)
-	f := float64(frequency)
-	l := float64(d.length)
-
-	TF := (f * (k + 1)) / (f + k*((1-b)+b*(l/lavg)))
-	return math.Log(N/Nt) * TF
-}
-
 // GetPostingReader returns a posting reader for a term
 func (i *Index) GetPostingReader(term string) (*PostingReader, bool) {
 	if buf, ok := i.dict.getPostingBuffer(term); ok {
@@ -166,13 +154,22 @@ func (i *Index) GetPostingReader(term string) (*PostingReader, bool) {
 	return nil, false
 }
 
-// GetPath returns the path of a given file
-func (i *Index) GetPath(docID uint32) (string, bool) {
-	if doc, ok := i.docs.fetchDoc(docID); ok {
-		return doc.path, ok
+// GetInfo returns information about the index
+func (i *Index) GetInfo() *IndexInfo {
+	info := IndexInfo{
+		NumDocs:     i.docs.totalDocs,
+		TotalLength: i.docs.totalLength,
 	}
 
-	return "", false
+	return &info
+}
+
+// GetDocInfo returns information about the given document
+func (i *Index) GetDocInfo(id uint32) (path string, length uint32, ok bool) {
+	if doc, ok := i.docs.fetchDoc(id); ok {
+		return doc.path, doc.length, true
+	}
+	return "", 0, false
 }
 
 func (i *Index) index(dir string) {

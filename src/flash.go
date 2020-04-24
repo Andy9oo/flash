@@ -32,10 +32,10 @@ func main() {
 	fmt.Printf("\nSearching...\n")
 
 	searchStart := time.Now()
-	results := engine.Search("this is a longer test", 9)
+	results := engine.Search("stellenbosch university", 10)
 	fmt.Printf("Found %v results in %v:\n", len(results), time.Since(searchStart))
 	for i := range results {
-		path, _ := index.GetPath(results[i].ID)
+		path, _, _ := index.GetDocInfo(results[i].ID)
 		fmt.Printf("%v. %v (%v)\n", i+1, path, results[i].Score)
 	}
 
