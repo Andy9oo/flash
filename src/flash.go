@@ -22,22 +22,23 @@ func main() {
 		log.Fatal(err)
 	}
 
+	start := time.Now()
 	// index := indexer.BuildIndex(path)
 	index, _ := indexer.LoadIndex(path)
 
 	engine := search.NewEngine(index)
 
 	pprof.StartCPUProfile(cpu)
-
 	fmt.Printf("\nSearching...\n")
-	start := time.Now()
 
-	results := engine.Search("is", 10)
-	fmt.Printf("Found %v results in %v:\n", len(results), time.Since(start))
+	searchStart := time.Now()
+	results := engine.Search("this is a longer test", 9)
+	fmt.Printf("Found %v results in %v:\n", len(results), time.Since(searchStart))
 	for i := range results {
 		path, _ := index.GetPath(results[i].ID)
 		fmt.Printf("%v. %v (%v)\n", i+1, path, results[i].Score)
 	}
 
+	fmt.Printf("\nTook: %v\n", time.Since(start))
 	pprof.StopCPUProfile()
 }

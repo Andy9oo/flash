@@ -35,14 +35,22 @@ func loadDictionary(root string, blockSize int64) *dictionary {
 	return &d
 }
 
-func (d *dictionary) getPostings(term string) (*postingList, bool) {
+func (d *dictionary) getPostingList(term string) (*postingList, bool) {
+	if buf, ok := d.getPostingBuffer(term); ok {
+		return decodePostingList(buf), ok
+	}
+
+	return nil, false
+}
+
+func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
 	indexReader := newIndexReader(postingsFile)
 	defer indexReader.close()
 
 	if offset, ok := d.entries[term]; ok {
-		_, postings := indexReader.fetchEntry(offset)
-		return postings, true
+		_, buf := indexReader.fetchEntry(offset)
+		return buf, true
 	}
 
 	keys := make([]string, 0, len(d.entries))
@@ -60,26 +68,10 @@ func (d *dictionary) getPostings(term string) (*postingList, bool) {
 	start := d.entries[keys[pos]]
 	end := d.entries[keys[pos+1]]
 
-	return indexReader.findPostings(term, start, end)
-}
-
-func (d *dictionary) getNumDocs(term string) int {
-	pl, ok := d.getPostings(term)
-	if !ok {
-		return 0
+	if buf, ok := indexReader.findPostings(term, start, end); ok {
+		return buf, true
 	}
-
-	return len(pl.docs)
-}
-
-func (d *dictionary) getFrequency(term string, doc uint32) int {
-	if pl, ok := d.getPostings(term); ok {
-		if postings, ok := pl.postings[doc]; ok {
-			return int(postings.frequency)
-		}
-	}
-
-	return 0
+	return nil, false
 }
 
 func (d *dictionary) loadOffsets() {

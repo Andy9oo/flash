@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"bytes"
 	"encoding/binary"
 	"io"
 	"log"
@@ -53,26 +54,26 @@ func (r *indexReader) fetchPostingsLength() uint32 {
 	return r.postingsLength
 }
 
-func (r *indexReader) fetchPostings() []byte {
+func (r *indexReader) fetchPostings() *bytes.Buffer {
 	buf := make([]byte, r.postingsLength)
 	r.file.Read(buf)
-	return buf
+	return bytes.NewBuffer(buf)
 }
 
 func (r *indexReader) skipPostings() {
 	r.file.Seek(int64(r.postingsLength), os.SEEK_CUR)
 }
 
-func (r *indexReader) fetchEntry(offset int64) (term string, postings *postingList) {
+func (r *indexReader) fetchEntry(offset int64) (term string, buf *bytes.Buffer) {
 	r.file.Seek(offset, os.SEEK_SET)
 	r.fetchNextTerm()
 	r.fetchPostingsLength()
-	buf := r.fetchPostings()
+	buf = r.fetchPostings()
 
-	return r.currentTerm, decodePostingList(buf)
+	return r.currentTerm, buf
 }
 
-func (r *indexReader) findPostings(term string, start int64, end int64) (postings *postingList, ok bool) {
+func (r *indexReader) findPostings(term string, start int64, end int64) (buf *bytes.Buffer, ok bool) {
 	r.file.Seek(start, os.SEEK_SET)
 	blockSize := end - start
 
@@ -91,7 +92,7 @@ func (r *indexReader) findPostings(term string, start int64, end int64) (posting
 		i += 4
 
 		if t == term {
-			return decodePostingList(block[i : i+plen]), true
+			return bytes.NewBuffer(block[i : i+plen]), true
 		}
 
 		i += plen
@@ -103,6 +104,10 @@ func (r *indexReader) findPostings(term string, start int64, end int64) (posting
 func (r *indexReader) close() {
 	r.file.Close()
 	r.done = true
+}
+
+func (r *indexReader) compare(s string) int {
+	return strings.Compare(r.currentTerm, s)
 }
 
 func readInt32(reader io.Reader) uint32 {
@@ -117,8 +122,4 @@ func readInt64(reader io.Reader) uint64 {
 	reader.Read(buf)
 
 	return binary.LittleEndian.Uint64(buf)
-}
-
-func (r *indexReader) compare(s string) int {
-	return strings.Compare(r.currentTerm, s)
 }

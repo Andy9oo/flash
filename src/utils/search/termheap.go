@@ -3,9 +3,10 @@ package search
 type termHeap []term
 
 type term struct {
-	value   string
-	nextDoc uint32
-	ok      bool
+	value     string
+	frequency uint32
+	nextDoc   uint32
+	ok        bool
 }
 
 func (h termHeap) Len() int           { return len(h) }

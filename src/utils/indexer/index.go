@@ -139,118 +139,8 @@ func (i *Index) Add(path string) {
 	}
 }
 
-// First returns the first doccument and offset where a term occurs
-func (i *Index) First(term string) (d uint32, o uint32, ok bool) {
-	pl, ok := i.dict.getPostings(term)
-	if !ok {
-		return 0, 0, false
-	}
-
-	docs := pl.getDocs()
-	firstID := docs[0]
-	first := pl.postings[firstID]
-
-	return firstID, first.offsets[0], true
-}
-
-// Last returns the last occurence of a term
-func (i *Index) Last(term string) (d uint32, o uint32, ok bool) {
-	pl, ok := i.dict.getPostings(term)
-	if !ok {
-		return 0, 0, false
-	}
-
-	docs := pl.getDocs()
-	lastID := docs[len(docs)-1]
-	last := pl.postings[lastID]
-
-	return lastID, last.offsets[last.frequency-1], true
-}
-
-// Next returns the next occurence of a term after a given offset
-func (i *Index) Next(term string, docid uint32, offset uint32) (d uint32, o uint32, ok bool) {
-	pl, ok := i.dict.getPostings(term)
-	if !ok {
-		return 0, 0, false
-	}
-
-	docs := pl.getDocs()
-	for i := 0; i < len(docs); i++ {
-		if docs[i] < docid {
-			continue
-		}
-
-		p := pl.postings[docs[i]]
-		for i := 0; i < len(p.offsets); i++ {
-			if p.offsets[i] > offset || p.docID > docid {
-				return p.docID, p.offsets[i], true
-			}
-		}
-	}
-
-	return 0, 0, false
-}
-
-// Prev returns the previous occurence of a term before a given offset
-func (i *Index) Prev(term string, docid uint32, offset uint32) (d uint32, o uint32, ok bool) {
-	pl, ok := i.dict.getPostings(term)
-	if !ok {
-		return 0, 0, false
-	}
-
-	docs := pl.getDocs()
-	for i := len(docs) - 1; i >= 0; i-- {
-		if docs[i] > docid {
-			continue
-		}
-
-		p := pl.postings[docs[i]]
-		for i := len(p.offsets) - 1; i >= 0; i-- {
-			if p.offsets[i] < offset || p.docID < docid {
-				return p.docID, p.offsets[i], true
-			}
-		}
-	}
-
-	return 0, 0, false
-}
-
-// NextDoc returns the next document which contains a term
-func (i *Index) NextDoc(term string, docid uint32) (d uint32, ok bool) {
-	pl, ok := i.dict.getPostings(term)
-	if !ok {
-		return 0, false
-	}
-
-	docs := pl.getDocs()
-	for i := 0; i < len(docs); i++ {
-		if docs[i] > docid {
-			return docs[i], true
-		}
-	}
-
-	return 0, false
-}
-
-// PrevDoc returns the previous document which contains a term
-func (i *Index) PrevDoc(term string, docid uint32) (d uint32, ok bool) {
-	pl, ok := i.dict.getPostings(term)
-	if !ok {
-		return 0, false
-	}
-
-	docs := pl.getDocs()
-	for i := len(docs) - 1; i >= 0; i-- {
-		if docs[i] < docid {
-			return docs[i], true
-		}
-	}
-
-	return 0, false
-}
-
 // Score returns the score for a doc using the BM25 ranking function
-func (i *Index) Score(term string, doc uint32, k float64, b float64) float64 {
+func (i *Index) Score(doc, numDocs, frequency uint32, k float64, b float64) float64 {
 	N := float64(i.docs.totalDocs)
 	lavg := float64(i.docs.totalLength) / float64(i.docs.totalDocs)
 
@@ -259,13 +149,21 @@ func (i *Index) Score(term string, doc uint32, k float64, b float64) float64 {
 		return 0
 	}
 
-	Nt := float64(i.dict.getNumDocs(term))
-	f := float64(i.dict.getFrequency(term, doc))
+	Nt := float64(numDocs)
+	f := float64(frequency)
 	l := float64(d.length)
 
 	TF := (f * (k + 1)) / (f + k*((1-b)+b*(l/lavg)))
-
 	return math.Log(N/Nt) * TF
+}
+
+// GetPostingReader returns a posting reader for a term
+func (i *Index) GetPostingReader(term string) (*PostingReader, bool) {
+	if buf, ok := i.dict.getPostingBuffer(term); ok {
+		return NewPostingReader(buf), true
+	}
+
+	return nil, false
 }
 
 // GetPath returns the path of a given file

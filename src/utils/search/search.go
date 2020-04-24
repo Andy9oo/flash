@@ -29,16 +29,19 @@ func NewEngine(index *indexer.Index) *Engine {
 
 // Search query
 func (e *Engine) Search(query string, k int) []*Result {
-	results, terms := e.initHeaps(query, k)
+	results, terms, preaders := e.initQuery(query, k)
 
 	for terms[0].ok {
 		doc := terms[0].nextDoc
 		score := 0.0
 		for terms[0].nextDoc == doc {
 			t := terms[0].value
-			score += e.index.Score(t, doc, 1.2, 0.75)
+			numDocs := preaders[t].NumDocs
+			freq := terms[0].frequency
 
-			terms[0].nextDoc, terms[0].ok = e.index.NextDoc(t, doc)
+			score += e.index.Score(doc, numDocs, freq, 1.2, 0.75)
+
+			terms[0].nextDoc, terms[0].frequency, _, terms[0].ok = preaders[t].NextPosting()
 			heap.Fix(&terms, 0)
 		}
 
@@ -61,7 +64,7 @@ func (e *Engine) Search(query string, k int) []*Result {
 	return finalResults
 }
 
-func (e *Engine) initHeaps(query string, k int) (resultHeap, termHeap) {
+func (e *Engine) initQuery(query string, k int) (resultHeap, termHeap, map[string]*indexer.PostingReader) {
 	var results resultHeap
 	for i := 0; i < k; i++ {
 		heap.Push(&results, Result{
@@ -71,17 +74,28 @@ func (e *Engine) initHeaps(query string, k int) (resultHeap, termHeap) {
 	}
 
 	terms := strings.Split(query, " ")
+	for i := range terms {
+		terms[i] = strings.ToLower(terms[i])
+	}
+
+	preaders := make(map[string]*indexer.PostingReader)
 
 	var theap termHeap
 	for _, t := range terms {
-		doc, _, ok := e.index.First(t)
+		if _, ok := preaders[t]; !ok {
+			if pr, ok := e.index.GetPostingReader(t); ok {
+				preaders[t] = pr
+				id, freq, _, ok := pr.NextPosting()
 
-		heap.Push(&theap, term{
-			value:   t,
-			nextDoc: doc,
-			ok:      ok,
-		})
+				heap.Push(&theap, term{
+					value:     t,
+					frequency: freq,
+					nextDoc:   id,
+					ok:        ok,
+				})
+			}
+		}
 	}
 
-	return results, theap
+	return results, theap, preaders
 }

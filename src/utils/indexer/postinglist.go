@@ -7,18 +7,21 @@ import (
 	"sort"
 )
 
+// PostingList type
 type postingList struct {
 	postings map[uint32]*posting
 	docs     []uint32
 	sorted   bool
 }
 
+// Posting type
 type posting struct {
 	docID     uint32
 	frequency uint32
 	offsets   []uint32
 }
 
+// NewPostingList creates a new posting list
 func newPostingList() *postingList {
 	l := postingList{
 		postings: make(map[uint32]*posting),
@@ -26,35 +29,39 @@ func newPostingList() *postingList {
 	return &l
 }
 
-func decodePostingList(buf []byte) *postingList {
+func decodePostingList(buf *bytes.Buffer) *postingList {
 	l := newPostingList()
 
-	offset := 0
-	for offset < len(buf) {
-		id := binary.LittleEndian.Uint32(buf[offset : offset+4])
-		offset += 4
-
-		frequency := binary.LittleEndian.Uint32(buf[offset : offset+4])
-		offset += 4
-
+	numDocs := readInt32(buf)
+	l.docs = make([]uint32, 0, numDocs)
+	for buf.Len() > 0 {
+		id := readInt32(buf)
+		frequency := readInt32(buf)
 		for i := uint32(0); i < frequency; i++ {
-			pos := binary.LittleEndian.Uint32(buf[offset : offset+4])
+			pos := readInt32(buf)
 			l.add(id, pos)
-			offset += 4
 		}
 	}
 	return l
 }
 
 func (l *postingList) add(docID uint32, offsets ...uint32) {
-	if _, ok := l.postings[docID]; !ok {
-		l.postings[docID] = &posting{docID: docID}
+	var p *posting
+	var ok bool
+
+	if p, ok = l.postings[docID]; !ok {
+		p = &posting{docID: docID}
+		l.postings[docID] = p
 		l.docs = append(l.docs, docID)
 		l.sorted = false
 	}
 
-	p := l.postings[docID]
 	p.addOffsets(offsets)
+}
+
+func (p *posting) addOffsets(offsets []uint32) {
+	p.offsets = append(p.offsets, offsets...)
+	p.frequency += uint32(len(offsets))
 }
 
 func (l *postingList) getDocs() []uint32 {
@@ -64,11 +71,6 @@ func (l *postingList) getDocs() []uint32 {
 	}
 
 	return l.docs
-}
-
-func (p *posting) addOffsets(offsets []uint32) {
-	p.offsets = append(p.offsets, offsets...)
-	p.frequency += uint32(len(offsets))
 }
 
 func (l *postingList) String() string {
@@ -89,9 +91,11 @@ func (l *postingList) String() string {
 	return out
 }
 
+// Bytes gives the posting list as a byte buffer
 func (l *postingList) Bytes() *bytes.Buffer {
 	buf := new(bytes.Buffer)
 	docs := l.getDocs()
+	binary.Write(buf, binary.LittleEndian, uint32(len(docs)))
 	for _, id := range docs {
 		p := l.postings[id]
 		binary.Write(buf, binary.LittleEndian, p.docID)
