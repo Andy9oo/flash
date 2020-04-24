@@ -144,7 +144,7 @@ func (e *Engine) calculateRemovedTermsScore(terms []term, preaders map[string]*i
 	for t := range terms {
 		reader := preaders[terms[t].value]
 
-		for terms[t].nextDoc < doc {
+		for terms[t].nextDoc < doc && terms[t].ok {
 			terms[t].nextDoc, terms[t].frequency, _, terms[t].ok = reader.NextPosting()
 		}
 
