@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime/pprof"
 	"time"
 )
 
@@ -17,20 +16,13 @@ func main() {
 		log.Fatal("Could not get filepath")
 	}
 
-	cpu, err := os.Create(path + "/cpu.profile")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	start := time.Now()
 	// index := indexer.BuildIndex(path)
 	index, _ := indexer.LoadIndex(path)
 
 	engine := search.NewEngine(index)
 
-	pprof.StartCPUProfile(cpu)
-	fmt.Printf("\nSearching...\n")
-
+	fmt.Println("Searching...")
 	searchStart := time.Now()
 	results := engine.Search("stellenbosch university", 10)
 	fmt.Printf("Found %v results in %v:\n", len(results), time.Since(searchStart))
@@ -40,5 +32,4 @@ func main() {
 	}
 
 	fmt.Printf("\nTook: %v\n", time.Since(start))
-	pprof.StopCPUProfile()
 }

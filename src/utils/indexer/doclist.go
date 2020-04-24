@@ -13,7 +13,7 @@ import (
 type doclist struct {
 	path        string
 	docs        []document
-	docLimit    int
+	docLimit    uint32
 	totalDocs   uint32
 	totalLength int
 	infoPath    string
@@ -26,7 +26,7 @@ type document struct {
 	length uint32
 }
 
-func newDocList(root string, limit int) *doclist {
+func newDocList(root string, limit uint32) *doclist {
 	path := fmt.Sprintf("%v/index.doclist", root)
 	infoPath := fmt.Sprintf("%v/doclist.info", root)
 
@@ -40,9 +40,9 @@ func newDocList(root string, limit int) *doclist {
 	return &l
 }
 
-func loadDocList(root string, limit int, blockSize int64) *doclist {
+func loadDocList(root string, limit uint32) *doclist {
 	l := newDocList(root, limit)
-	l.loadInfo(blockSize)
+	l.loadInfo(int64(limit))
 	return l
 }
 
@@ -54,7 +54,7 @@ func (d *doclist) add(file string, length uint32) {
 	}
 
 	d.docs = append(d.docs, doc)
-	if len(d.docs) >= d.docLimit {
+	if uint32(len(d.docs)) >= d.docLimit {
 		d.dumpFiles()
 	}
 
