@@ -70,20 +70,28 @@ func BuildIndex(root string) *Index {
 
 	spinner, _ := yacspin.New(cfg)
 	spinner.Start()
+	start := time.Now()
 
 	spinner.Message("Indexing Directory")
 	i.index(root)
+	indexDone := time.Now()
 
 	spinner.Message("Merging Partitions")
 	i.mergeParitions()
+	mergeDone := time.Now()
 
 	spinner.Message("Loading Dictionary")
 	i.dict = loadDictionary(i.dir, dictionaryLimit)
+	dictDone := time.Now()
 
 	spinner.Message("Loading Documents")
 	i.docs.calculateOffsets(blockSize)
+	docDone := time.Now()
 
 	spinner.Stop()
+
+	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\nDoclist: %v\n\nTotal: %v\n", indexDone.Sub(start), mergeDone.Sub(indexDone), dictDone.Sub(mergeDone), docDone.Sub(dictDone), time.Since(start))
+
 	return &i
 }
 

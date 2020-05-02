@@ -17,8 +17,8 @@ func main() {
 	}
 
 	start := time.Now()
-	// index := indexer.BuildIndex(path)
-	index, _ := indexer.LoadIndex(path)
+	index := indexer.BuildIndex(path)
+	// index, _ := indexer.LoadIndex(path)
 
 	engine := search.NewEngine(index)
 
