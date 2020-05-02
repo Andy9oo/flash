@@ -13,7 +13,7 @@ type merger struct {
 	output    *os.File
 	part      *partition
 	paritions []*partition
-	readers   []*indexReader
+	readers   []*Reader
 	finished  int
 }
 
@@ -39,7 +39,7 @@ func merge(dir string, outID int, partitions []*partition) *partition {
 	return m.part
 }
 
-func (m *merger) getNextTerm() (term string, readers []*indexReader) {
+func (m *merger) getNextTerm() (term string, readers []*Reader) {
 	for i := 0; i < len(m.readers); i++ {
 		if m.readers[i].done {
 			continue
@@ -56,7 +56,7 @@ func (m *merger) getNextTerm() (term string, readers []*indexReader) {
 	return term, readers
 }
 
-func (m *merger) mergePostings(readers []*indexReader) {
+func (m *merger) mergePostings(readers []*Reader) {
 	plist := postinglist.NewList()
 	for i := 0; i < len(readers); i++ {
 		readers[i].fetchPostingsLength()
@@ -73,7 +73,7 @@ func (m *merger) mergePostings(readers []*indexReader) {
 	m.output.Write(buf.Bytes())
 }
 
-func (m *merger) advanceTerms(readers []*indexReader) {
+func (m *merger) advanceTerms(readers []*Reader) {
 	for i := range readers {
 		if ok := readers[i].fetchNextTerm(); !ok {
 			m.finished++
@@ -92,7 +92,7 @@ func (m *merger) createOutputFile() {
 
 func (m *merger) openReaders(partitions []*partition) {
 	for i := range partitions {
-		m.readers = append(m.readers, newIndexReader(partitions[i].getPath()))
+		m.readers = append(m.readers, NewReader(partitions[i].getPath()))
 	}
 }
 

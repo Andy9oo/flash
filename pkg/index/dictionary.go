@@ -47,8 +47,8 @@ func (d *dictionary) getPostingList(term string) (*postinglist.List, bool) {
 
 func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
-	indexReader := newIndexReader(postingsFile)
-	defer indexReader.close()
+	indexReader := NewReader(postingsFile)
+	defer indexReader.Close()
 
 	if offset, ok := d.entries[term]; ok {
 		_, buf := indexReader.fetchEntry(offset)
@@ -98,7 +98,7 @@ func (d *dictionary) loadOffsets() {
 
 func (d *dictionary) calculateOffsets() {
 	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
-	reader := newIndexReader(postingsFile)
+	reader := NewReader(postingsFile)
 
 	var remainingBytes int64
 	var offset int64

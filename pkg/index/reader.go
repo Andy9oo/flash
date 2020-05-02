@@ -9,20 +9,22 @@ import (
 	"strings"
 )
 
-type indexReader struct {
+// Reader for processing indexes
+type Reader struct {
 	file           *os.File
 	currentTerm    string
 	postingsLength uint32
 	done           bool
 }
 
-func newIndexReader(path string) *indexReader {
+// NewReader creates a new index reader
+func NewReader(path string) *Reader {
 	f, err := os.Open(path)
 	if err != nil {
 		log.Fatalf("Could not open file: %v\n", path)
 	}
 
-	r := &indexReader{
+	r := &Reader{
 		file: f,
 		done: false,
 	}
@@ -31,7 +33,7 @@ func newIndexReader(path string) *indexReader {
 	return r
 }
 
-func (r *indexReader) fetchNextTerm() (ok bool) {
+func (r *Reader) fetchNextTerm() (ok bool) {
 	if r.done {
 		return false
 	}
@@ -49,22 +51,22 @@ func (r *indexReader) fetchNextTerm() (ok bool) {
 	return true
 }
 
-func (r *indexReader) fetchPostingsLength() uint32 {
+func (r *Reader) fetchPostingsLength() uint32 {
 	r.postingsLength = readers.ReadUint32(r.file)
 	return r.postingsLength
 }
 
-func (r *indexReader) fetchPostings() *bytes.Buffer {
+func (r *Reader) fetchPostings() *bytes.Buffer {
 	buf := make([]byte, r.postingsLength)
 	r.file.Read(buf)
 	return bytes.NewBuffer(buf)
 }
 
-func (r *indexReader) skipPostings() {
+func (r *Reader) skipPostings() {
 	r.file.Seek(int64(r.postingsLength), os.SEEK_CUR)
 }
 
-func (r *indexReader) fetchEntry(offset int64) (term string, buf *bytes.Buffer) {
+func (r *Reader) fetchEntry(offset int64) (term string, buf *bytes.Buffer) {
 	r.file.Seek(offset, os.SEEK_SET)
 	r.fetchNextTerm()
 	r.fetchPostingsLength()
@@ -73,7 +75,7 @@ func (r *indexReader) fetchEntry(offset int64) (term string, buf *bytes.Buffer) 
 	return r.currentTerm, buf
 }
 
-func (r *indexReader) findPostings(term string, start int64, end int64) (buf *bytes.Buffer, ok bool) {
+func (r *Reader) findPostings(term string, start int64, end int64) (buf *bytes.Buffer, ok bool) {
 	r.file.Seek(start, os.SEEK_SET)
 	blockSize := end - start
 
@@ -101,11 +103,12 @@ func (r *indexReader) findPostings(term string, start int64, end int64) (buf *by
 	return nil, false
 }
 
-func (r *indexReader) close() {
+// Close index reader
+func (r *Reader) Close() {
 	r.file.Close()
 	r.done = true
 }
 
-func (r *indexReader) compare(s string) int {
+func (r *Reader) compare(s string) int {
 	return strings.Compare(r.currentTerm, s)
 }

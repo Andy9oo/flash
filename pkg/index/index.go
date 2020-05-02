@@ -2,6 +2,7 @@ package index
 
 import (
 	"flash/pkg/importer"
+	"flash/pkg/index/doclist"
 	"flash/pkg/index/postinglist"
 	"fmt"
 	"log"
@@ -33,7 +34,7 @@ const (
 type Index struct {
 	dir        string
 	dict       *dictionary
-	docs       *doclist
+	docs       *doclist.DocList
 	partitions []*partition
 	numParts   int
 }
@@ -50,7 +51,7 @@ func BuildIndex(root string) *Index {
 
 	i := Index{
 		dir:      dir,
-		docs:     newDocList(dir, documentListLimit),
+		docs:     doclist.NewList(dir, documentListLimit),
 		numParts: -1,
 	}
 
@@ -86,7 +87,7 @@ func BuildIndex(root string) *Index {
 	dictDone := time.Now()
 
 	spinner.Message("Loading Documents")
-	i.docs.calculateOffsets(blockSize)
+	i.docs.CalculateOffsets(blockSize)
 	docDone := time.Now()
 
 	spinner.Stop()
@@ -108,7 +109,7 @@ func LoadIndex(root string) (i *Index, ok bool) {
 	}
 
 	i.dict = loadDictionary(dir, dictionaryLimit)
-	i.docs = loadDocList(dir, documentListLimit)
+	i.docs = doclist.Load(dir, documentListLimit)
 
 	return i, true
 }
@@ -134,11 +135,11 @@ func (i *Index) Add(path string) {
 				p = i.addPartition()
 			}
 
-			p.add(term, i.docs.totalDocs, offset)
+			p.add(term, i.docs.GetID(), offset)
 			offset++
 		}
 
-		i.docs.add(path, offset)
+		i.docs.Add(path, offset)
 	}
 }
 
@@ -154,8 +155,8 @@ func (i *Index) GetPostingReader(term string) (*postinglist.Reader, bool) {
 // GetInfo returns information about the index
 func (i *Index) GetInfo() *Info {
 	info := Info{
-		NumDocs:     i.docs.totalDocs,
-		TotalLength: i.docs.totalLength,
+		NumDocs:     i.docs.NumDocs(),
+		TotalLength: i.docs.TotalLength(),
 	}
 
 	return &info
@@ -163,8 +164,8 @@ func (i *Index) GetInfo() *Info {
 
 // GetDocInfo returns information about the given document
 func (i *Index) GetDocInfo(id uint32) (path string, length uint32, ok bool) {
-	if doc, ok := i.docs.fetchDoc(id); ok {
-		return doc.path, doc.length, true
+	if doc, ok := i.docs.Fetch(id); ok {
+		return doc.Path(), doc.Length(), true
 	}
 	return "", 0, false
 }
@@ -233,7 +234,7 @@ func (i *Index) clearMemory() {
 	for _, p := range i.partitions {
 		p.dump()
 	}
-	i.docs.dumpFiles()
+	i.docs.Dump()
 }
 
 func (i *Index) createDir() {
