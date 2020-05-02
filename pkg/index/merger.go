@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/pkg/index/postinglist"
 	"log"
 	"os"
 )
@@ -56,14 +57,14 @@ func (m *merger) getNextTerm() (term string, readers []*indexReader) {
 }
 
 func (m *merger) mergePostings(readers []*indexReader) {
-	plist := newPostingList()
+	plist := postinglist.NewList()
 	for i := 0; i < len(readers); i++ {
 		readers[i].fetchPostingsLength()
-		l := decodePostingList(readers[i].fetchPostings())
+		r := postinglist.NewReader(readers[i].fetchPostings())
 
-		docs := l.getDocs()
-		for _, id := range docs {
-			plist.add(id, l.postings[id].offsets...)
+		for r.Read() {
+			id, _, offsets := r.Data()
+			plist.Add(id, offsets...)
 		}
 	}
 

@@ -2,6 +2,7 @@ package index
 
 import (
 	"flash/pkg/importer"
+	"flash/pkg/index/postinglist"
 	"fmt"
 	"log"
 	"math"
@@ -142,9 +143,9 @@ func (i *Index) Add(path string) {
 }
 
 // GetPostingReader returns a posting reader for a term
-func (i *Index) GetPostingReader(term string) (*PostingReader, bool) {
+func (i *Index) GetPostingReader(term string) (*postinglist.Reader, bool) {
 	if buf, ok := i.dict.getPostingBuffer(term); ok {
-		return NewPostingReader(buf), true
+		return postinglist.NewReader(buf), true
 	}
 
 	return nil, false

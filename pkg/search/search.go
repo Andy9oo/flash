@@ -3,6 +3,7 @@ package search
 import (
 	"container/heap"
 	"flash/pkg/index"
+	"flash/pkg/index/postinglist"
 	"math"
 	"sort"
 	"strings"
@@ -46,13 +47,15 @@ func (e *Engine) Search(query string, k int) []*Result {
 		score := 0.0
 		for terms[0].nextDoc == doc {
 			t := terms[0].value
-			numDocs := preaders[t].NumDocs
+			numDocs := preaders[t].NumDocs()
 			freq := terms[0].frequency
 
 			score += e.Score(doc, numDocs, freq, k1, b)
 			score += e.calculateRemovedTermsScore(removedTerms, preaders, doc)
 
-			terms[0].nextDoc, terms[0].frequency, _, terms[0].ok = preaders[t].NextPosting()
+			terms[0].ok = preaders[t].Read()
+			terms[0].nextDoc, terms[0].frequency, _ = preaders[t].Data()
+
 			heap.Fix(&terms, 0)
 		}
 
@@ -83,7 +86,7 @@ func (e *Engine) Search(query string, k int) []*Result {
 	return finalResults
 }
 
-func (e *Engine) initQuery(query string, k int) (resultHeap, termHeap, map[string]*index.PostingReader) {
+func (e *Engine) initQuery(query string, k int) (resultHeap, termHeap, map[string]*postinglist.Reader) {
 	var results resultHeap
 	for i := 0; i < k; i++ {
 		heap.Push(&results, Result{
@@ -97,20 +100,22 @@ func (e *Engine) initQuery(query string, k int) (resultHeap, termHeap, map[strin
 		terms[i] = strings.ToLower(terms[i])
 	}
 
-	preaders := make(map[string]*index.PostingReader)
+	preaders := make(map[string]*postinglist.Reader)
 
 	var theap termHeap
 	for i := range terms {
 		if _, ok := preaders[terms[i]]; !ok {
 			if pr, ok := e.index.GetPostingReader(terms[i]); ok {
 				preaders[terms[i]] = pr
-				id, freq, _, ok := pr.NextPosting()
+
+				ok := pr.Read()
+				id, freq, _ := pr.Data()
 
 				t := term{
 					value:     terms[i],
 					frequency: freq,
 					nextDoc:   id,
-					maxScore:  calculateMaxScore(e.info, pr.NumDocs),
+					maxScore:  calculateMaxScore(e.info, pr.NumDocs()),
 					ok:        ok,
 				}
 
@@ -139,18 +144,19 @@ func (e *Engine) Score(doc, numDocs, frequency uint32, k float64, b float64) flo
 	return 0
 }
 
-func (e *Engine) calculateRemovedTermsScore(terms []term, preaders map[string]*index.PostingReader, doc uint32) float64 {
+func (e *Engine) calculateRemovedTermsScore(terms []term, preaders map[string]*postinglist.Reader, doc uint32) float64 {
 	score := 0.0
 	for t := range terms {
 		reader := preaders[terms[t].value]
 
 		for terms[t].nextDoc < doc && terms[t].ok {
-			terms[t].nextDoc, terms[t].frequency, _, terms[t].ok = reader.NextPosting()
+			terms[t].ok = reader.Read()
+			terms[t].nextDoc, terms[t].frequency, _ = reader.Data()
 		}
 
 		// If the doc contains the term
 		if terms[t].nextDoc == doc {
-			score += e.Score(doc, reader.NumDocs, terms[t].frequency, k1, b)
+			score += e.Score(doc, reader.NumDocs(), terms[t].frequency, k1, b)
 		}
 	}
 	return score

@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/pkg/index/postinglist"
 	"fmt"
 	"log"
 	"os"
@@ -12,7 +13,7 @@ import (
 type partition struct {
 	dir             string
 	partitionNumber int
-	postings        map[string]*postingList
+	postings        map[string]*postinglist.List
 	size            int
 }
 
@@ -20,7 +21,7 @@ func newPartition(dir string, partitionNumber int) *partition {
 	p := partition{
 		dir:             dir,
 		partitionNumber: partitionNumber,
-		postings:        make(map[string]*postingList),
+		postings:        make(map[string]*postinglist.List),
 	}
 
 	return &p
@@ -28,10 +29,10 @@ func newPartition(dir string, partitionNumber int) *partition {
 
 func (p *partition) add(term string, docID uint32, offset uint32) {
 	if _, ok := p.postings[term]; !ok {
-		p.postings[term] = newPostingList()
+		p.postings[term] = postinglist.NewList()
 		p.size += 8
 	}
-	p.postings[term].add(docID, offset)
+	p.postings[term].Add(docID, offset)
 	p.size += 4
 }
 
