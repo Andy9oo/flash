@@ -1,8 +1,9 @@
-package indexer
+package index
 
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/tools/readers"
 	"fmt"
 	"io"
 	"log"
@@ -71,14 +72,14 @@ func (d *doclist) loadInfo(blockSize int64) {
 	defer f.Close()
 
 	// Load info
-	d.totalDocs = readInt32(f)
-	d.totalLength = int(readInt32(f))
-	numOffsets := readInt32(f)
+	d.totalDocs = readers.ReadUint32(f)
+	d.totalLength = int(readers.ReadUint32(f))
+	numOffsets := readers.ReadUint32(f)
 
 	// Load offsets
 	for i := uint32(0); i < numOffsets; i++ {
-		id := readInt32(f)
-		offset := readInt64(f)
+		id := readers.ReadUint32(f)
+		offset := readers.ReadUint64(f)
 		d.offsets[id] = int64(offset)
 	}
 }
@@ -93,9 +94,9 @@ func (d *doclist) calculateOffsets(blockSize int64) {
 	var remainingBytes int64
 	var offset int64
 	for i := uint32(0); i < d.totalDocs; i++ {
-		id := readInt32(f)
-		_ = readInt32(f) // Read length
-		pathLength := readInt32(f)
+		id := readers.ReadUint32(f)
+		_ = readers.ReadUint32(f) // Read length
+		pathLength := readers.ReadUint32(f)
 
 		// 12 bytes for id, length, and pathLength
 		numBytes := int64(12 + pathLength)
@@ -206,9 +207,9 @@ func (d *doclist) findDoc(f *os.File, id uint32, start, end int64) (doc *documen
 }
 
 func (d *doclist) readDoc(reader io.Reader) *document {
-	id := readInt32(reader)
-	len := readInt32(reader)
-	plen := readInt32(reader)
+	id := readers.ReadUint32(reader)
+	len := readers.ReadUint32(reader)
+	plen := readers.ReadUint32(reader)
 
 	pbuf := make([]byte, plen)
 	reader.Read(pbuf)

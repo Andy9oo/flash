@@ -1,8 +1,9 @@
-package indexer
+package index
 
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/tools/readers"
 	"fmt"
 	"sort"
 )
@@ -32,13 +33,13 @@ func newPostingList() *postingList {
 func decodePostingList(buf *bytes.Buffer) *postingList {
 	l := newPostingList()
 
-	numDocs := readInt32(buf)
+	numDocs := readers.ReadUint32(buf)
 	l.docs = make([]uint32, 0, numDocs)
 	for buf.Len() > 0 {
-		id := readInt32(buf)
-		frequency := readInt32(buf)
+		id := readers.ReadUint32(buf)
+		frequency := readers.ReadUint32(buf)
 		for i := uint32(0); i < frequency; i++ {
-			pos := readInt32(buf)
+			pos := readers.ReadUint32(buf)
 			l.add(id, pos)
 		}
 	}

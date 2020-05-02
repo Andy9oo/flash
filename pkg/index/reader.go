@@ -1,9 +1,9 @@
-package indexer
+package index
 
 import (
 	"bytes"
 	"encoding/binary"
-	"io"
+	"flash/tools/readers"
 	"log"
 	"os"
 	"strings"
@@ -36,7 +36,7 @@ func (r *indexReader) fetchNextTerm() (ok bool) {
 		return false
 	}
 
-	tlen := readInt32(r.file)
+	tlen := readers.ReadUint32(r.file)
 	buf := make([]byte, tlen)
 	n, err := r.file.Read(buf)
 	if n == 0 || err != nil {
@@ -50,7 +50,7 @@ func (r *indexReader) fetchNextTerm() (ok bool) {
 }
 
 func (r *indexReader) fetchPostingsLength() uint32 {
-	r.postingsLength = readInt32(r.file)
+	r.postingsLength = readers.ReadUint32(r.file)
 	return r.postingsLength
 }
 
@@ -108,18 +108,4 @@ func (r *indexReader) close() {
 
 func (r *indexReader) compare(s string) int {
 	return strings.Compare(r.currentTerm, s)
-}
-
-func readInt32(reader io.Reader) uint32 {
-	buf := make([]byte, 4)
-	reader.Read(buf)
-
-	return binary.LittleEndian.Uint32(buf)
-}
-
-func readInt64(reader io.Reader) uint64 {
-	buf := make([]byte, 8)
-	reader.Read(buf)
-
-	return binary.LittleEndian.Uint64(buf)
 }

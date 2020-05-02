@@ -2,7 +2,7 @@ package search
 
 import (
 	"container/heap"
-	"flash/src/utils/indexer"
+	"flash/pkg/index"
 	"math"
 	"sort"
 	"strings"
@@ -10,8 +10,8 @@ import (
 
 // Engine is the search engine datastructure
 type Engine struct {
-	index *indexer.Index
-	info  *indexer.IndexInfo
+	index *index.Index
+	info  *index.Info
 }
 
 // Result type
@@ -26,7 +26,7 @@ const (
 )
 
 // NewEngine creates a search engine for the given index
-func NewEngine(index *indexer.Index) *Engine {
+func NewEngine(index *index.Index) *Engine {
 	e := Engine{
 		index: index,
 		info:  index.GetInfo(),
@@ -83,7 +83,7 @@ func (e *Engine) Search(query string, k int) []*Result {
 	return finalResults
 }
 
-func (e *Engine) initQuery(query string, k int) (resultHeap, termHeap, map[string]*indexer.PostingReader) {
+func (e *Engine) initQuery(query string, k int) (resultHeap, termHeap, map[string]*index.PostingReader) {
 	var results resultHeap
 	for i := 0; i < k; i++ {
 		heap.Push(&results, Result{
@@ -97,7 +97,7 @@ func (e *Engine) initQuery(query string, k int) (resultHeap, termHeap, map[strin
 		terms[i] = strings.ToLower(terms[i])
 	}
 
-	preaders := make(map[string]*indexer.PostingReader)
+	preaders := make(map[string]*index.PostingReader)
 
 	var theap termHeap
 	for i := range terms {
@@ -139,7 +139,7 @@ func (e *Engine) Score(doc, numDocs, frequency uint32, k float64, b float64) flo
 	return 0
 }
 
-func (e *Engine) calculateRemovedTermsScore(terms []term, preaders map[string]*indexer.PostingReader, doc uint32) float64 {
+func (e *Engine) calculateRemovedTermsScore(terms []term, preaders map[string]*index.PostingReader, doc uint32) float64 {
 	score := 0.0
 	for t := range terms {
 		reader := preaders[terms[t].value]

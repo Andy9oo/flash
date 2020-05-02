@@ -1,7 +1,7 @@
 package search
 
 import (
-	"flash/src/utils/indexer"
+	"flash/pkg/index"
 	"math"
 )
 
@@ -31,6 +31,6 @@ func (h *termHeap) Pop() interface{} {
 	return x
 }
 
-func calculateMaxScore(info *indexer.IndexInfo, numDocs uint32) float64 {
+func calculateMaxScore(info *index.Info, numDocs uint32) float64 {
 	return (k1 + 1) * math.Log(float64(info.NumDocs)/float64(numDocs))
 }

@@ -1,7 +1,8 @@
-package indexer
+package index
 
 import (
 	"bytes"
+	"flash/tools/readers"
 )
 
 // PostingReader type for efficiently reading posting lists sequentially
@@ -14,7 +15,7 @@ type PostingReader struct {
 func NewPostingReader(buf *bytes.Buffer) *PostingReader {
 	r := PostingReader{
 		buffer:  buf,
-		NumDocs: readInt32(buf),
+		NumDocs: readers.ReadUint32(buf),
 	}
 	return &r
 }
@@ -25,12 +26,12 @@ func (pr *PostingReader) NextPosting() (id, frequency uint32, offsets []uint32, 
 		return 0, 0, nil, false
 	}
 
-	id = readInt32(pr.buffer)
-	frequency = readInt32(pr.buffer)
+	id = readers.ReadUint32(pr.buffer)
+	frequency = readers.ReadUint32(pr.buffer)
 
 	offsets = make([]uint32, frequency)
 	for i := uint32(0); i < frequency; i++ {
-		offsets[i] = readInt32(pr.buffer)
+		offsets[i] = readers.ReadUint32(pr.buffer)
 	}
 
 	return id, frequency, offsets, true

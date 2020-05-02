@@ -7,7 +7,6 @@
 
 # Folders containing binaries
 bin
-pkg
 
 # Test binary
 *.test

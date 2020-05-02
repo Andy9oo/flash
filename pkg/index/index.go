@@ -1,7 +1,7 @@
-package indexer
+package index
 
 import (
-	"flash/src/utils/importer"
+	"flash/pkg/importer"
 	"fmt"
 	"log"
 	"math"
@@ -37,8 +37,8 @@ type Index struct {
 	numParts   int
 }
 
-// IndexInfo contains information about an index
-type IndexInfo struct {
+// Info contains information about an index
+type Info struct {
 	NumDocs     uint32
 	TotalLength int
 }
@@ -151,8 +151,8 @@ func (i *Index) GetPostingReader(term string) (*PostingReader, bool) {
 }
 
 // GetInfo returns information about the index
-func (i *Index) GetInfo() *IndexInfo {
-	info := IndexInfo{
+func (i *Index) GetInfo() *Info {
+	info := Info{
 		NumDocs:     i.docs.totalDocs,
 		TotalLength: i.docs.totalLength,
 	}

@@ -1,8 +1,9 @@
-package indexer
+package index
 
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/tools/readers"
 	"fmt"
 	"os"
 	"sort"
@@ -82,14 +83,14 @@ func (d *dictionary) loadOffsets() {
 	}
 	defer f.Close()
 
-	numTerms := readInt32(f)
+	numTerms := readers.ReadUint32(f)
 	for i := uint32(0); i < numTerms; i++ {
-		tlen := readInt32(f)
+		tlen := readers.ReadUint32(f)
 
 		tbuf := make([]byte, tlen)
 		f.Read(tbuf)
 
-		offset := readInt64(f)
+		offset := readers.ReadUint64(f)
 		d.entries[string(tbuf)] = int64(offset)
 	}
 }
