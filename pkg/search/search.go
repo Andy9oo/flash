@@ -42,6 +42,10 @@ func (e *Engine) Search(query string, n int) []*Result {
 	var removedTerms []term
 	var removedScore float64
 
+	if len(terms) == 0 {
+		return nil
+	}
+
 	for terms[0].ok {
 		doc := terms[0].nextDoc
 		score := 0.0
