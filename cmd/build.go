@@ -17,39 +17,40 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"flash/pkg/index"
-	"flash/pkg/search"
-	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-// findCmd represents the find command
-var findCmd = &cobra.Command{
-	Use:   "find",
-	Short: "Search the index for the given query",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		index, err := index.Load(viper.GetString("indexpath"))
-		if err != nil {
-			return err
+var buildCmd = &cobra.Command{
+	Use:   "build",
+	Short: "Builds the index for the given directory",
+	Run: func(cmd *cobra.Command, args []string) {
+		indexpath := viper.GetString("indexpath")
+
+		// Delete current index
+		os.RemoveAll(indexpath)
+
+		// Build new index
+		index.Build(viper.GetString("indexpath"), args[0])
+	},
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) != 1 {
+			return errors.New("A single directory must be provided")
 		}
 
-		n, _ := cmd.Flags().GetInt("num_results")
-
-		engine := search.NewEngine(index)
-		results := engine.Search(args[0], n)
-		for i, result := range results {
-			path, _, _ := index.GetDocInfo(result.ID)
-			fmt.Printf("%v. %v\n", i+1, path)
+		info, err := os.Stat(args[0])
+		if err != nil || info.IsDir() {
+			return errors.New("Argument must be a valid directory")
 		}
 
 		return nil
 	},
-	Args: cobra.ExactArgs(1),
 }
 
 func init() {
-	findCmd.Flags().IntP("num_results", "n", 10, "The number of results that will be returned")
-	rootCmd.AddCommand(findCmd)
+	rootCmd.AddCommand(buildCmd)
 }

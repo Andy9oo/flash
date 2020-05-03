@@ -1,6 +1,7 @@
 package index
 
 import (
+	"errors"
 	"flash/pkg/importer"
 	"flash/pkg/index/doclist"
 	"flash/pkg/index/postinglist"
@@ -45,13 +46,11 @@ type Info struct {
 	TotalLength int
 }
 
-// BuildIndex builds a new index for the given directory
-func BuildIndex(root string) *Index {
-	dir := fmt.Sprintf("%v/.index", root)
-
+// Build builds a new index for the given directory
+func Build(indexpath, root string) *Index {
 	i := Index{
-		dir:      dir,
-		docs:     doclist.NewList(dir, documentListLimit),
+		dir:      indexpath,
+		docs:     doclist.NewList(indexpath, documentListLimit),
 		numParts: -1,
 	}
 
@@ -97,21 +96,18 @@ func BuildIndex(root string) *Index {
 	return &i
 }
 
-// LoadIndex opens the index for the given root file
-func LoadIndex(root string) (i *Index, ok bool) {
-	dir := fmt.Sprintf("%v/.index", root)
-
-	i = &Index{dir: dir}
-	_, err := os.Stat(i.getPostingsPath())
+// Load opens the index at the indexpath
+func Load(indexpath string) (i *Index, err error) {
+	i = &Index{dir: indexpath}
+	_, err = os.Stat(i.getPostingsPath())
 	if err != nil {
-		fmt.Println("No index found")
-		return nil, false
+		return nil, errors.New("Could not find index")
 	}
 
-	i.dict = loadDictionary(dir, dictionaryLimit)
-	i.docs = doclist.Load(dir, documentListLimit)
+	i.dict = loadDictionary(indexpath, dictionaryLimit)
+	i.docs = doclist.Load(indexpath, documentListLimit)
 
-	return i, true
+	return i, nil
 }
 
 // Add adds the given file or directory to the index

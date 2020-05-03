@@ -76,6 +76,14 @@ func (l *List) GetDocs() []uint32 {
 	return l.docs
 }
 
+func (l *List) GetPosting(docid uint32) *Posting {
+	return l.postings[docid]
+}
+
+func (p *Posting) GetOffsets() []uint32 {
+	return p.offsets
+}
+
 // Bytes gives the posting list as a byte buffer
 func (l *List) Bytes() *bytes.Buffer {
 	buf := new(bytes.Buffer)

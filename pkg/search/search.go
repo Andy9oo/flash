@@ -37,15 +37,15 @@ func NewEngine(index *index.Index) *Engine {
 }
 
 // Search query
-func (e *Engine) Search(query string, k int) []*Result {
-	results, terms, preaders := e.initQuery(query, k)
+func (e *Engine) Search(query string, n int) []*Result {
+	results, terms, preaders := e.initQuery(query, n)
 	var removedTerms []term
 	var removedScore float64
 
 	for terms[0].ok {
 		doc := terms[0].nextDoc
 		score := 0.0
-		for terms[0].nextDoc == doc {
+		for terms[0].nextDoc == doc && terms[0].ok {
 			t := terms[0].value
 			numDocs := preaders[t].NumDocs()
 			freq := terms[0].frequency
@@ -86,9 +86,9 @@ func (e *Engine) Search(query string, k int) []*Result {
 	return finalResults
 }
 
-func (e *Engine) initQuery(query string, k int) (resultHeap, termHeap, map[string]*postinglist.Reader) {
+func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[string]*postinglist.Reader) {
 	var results resultHeap
-	for i := 0; i < k; i++ {
+	for i := 0; i < n; i++ {
 		heap.Push(&results, Result{
 			ID:    0,
 			Score: 0,

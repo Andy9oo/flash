@@ -36,7 +36,7 @@ func (r *Reader) Read() (ok bool) {
 		r.offsets[i] = readers.ReadUint32(r.buffer)
 	}
 
-	return false
+	return true
 }
 
 // Data will return the data which has been read

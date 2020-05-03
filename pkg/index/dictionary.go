@@ -11,17 +11,17 @@ import (
 )
 
 type dictionary struct {
-	root      string
-	path      string
+	indexpath string
+	dictpath  string
 	blockSize int64
 	entries   map[string]int64
 }
 
-func loadDictionary(root string, blockSize int64) *dictionary {
-	path := fmt.Sprintf("%v/index.dict", root)
+func loadDictionary(indexpath string, blockSize int64) *dictionary {
+	path := fmt.Sprintf("%v/index.dict", indexpath)
 	d := dictionary{
-		root:      root,
-		path:      path,
+		indexpath: indexpath,
+		dictpath:  path,
 		blockSize: blockSize,
 		entries:   make(map[string]int64),
 	}
@@ -46,7 +46,7 @@ func (d *dictionary) getPostingList(term string) (*postinglist.List, bool) {
 }
 
 func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
-	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
+	postingsFile := fmt.Sprintf("%v/index.postings", d.indexpath)
 	indexReader := NewReader(postingsFile)
 	defer indexReader.Close()
 
@@ -77,7 +77,7 @@ func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 }
 
 func (d *dictionary) loadOffsets() {
-	f, err := os.Open(d.path)
+	f, err := os.Open(d.dictpath)
 	if err != nil {
 		fmt.Println("Could not open dictionary file")
 		return
@@ -97,7 +97,7 @@ func (d *dictionary) loadOffsets() {
 }
 
 func (d *dictionary) calculateOffsets() {
-	postingsFile := fmt.Sprintf("%v/index.postings", d.root)
+	postingsFile := fmt.Sprintf("%v/index.postings", d.indexpath)
 	reader := NewReader(postingsFile)
 
 	var remainingBytes int64
@@ -122,7 +122,7 @@ func (d *dictionary) calculateOffsets() {
 }
 
 func (d *dictionary) dump() {
-	f, err := os.Create(d.path)
+	f, err := os.Create(d.dictpath)
 	if err != nil {
 		fmt.Println(err)
 	}

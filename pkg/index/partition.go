@@ -11,15 +11,15 @@ import (
 )
 
 type partition struct {
-	dir             string
+	indexpath       string
 	partitionNumber int
 	postings        map[string]*postinglist.List
 	size            int
 }
 
-func newPartition(dir string, partitionNumber int) *partition {
+func newPartition(indexpath string, partitionNumber int) *partition {
 	p := partition{
-		dir:             dir,
+		indexpath:       indexpath,
 		partitionNumber: partitionNumber,
 		postings:        make(map[string]*postinglist.List),
 	}
@@ -78,5 +78,5 @@ func (p *partition) dump() {
 }
 
 func (p *partition) getPath() string {
-	return fmt.Sprintf("%v/p%d.part", p.dir, p.partitionNumber)
+	return fmt.Sprintf("%v/p%d.part", p.indexpath, p.partitionNumber)
 }

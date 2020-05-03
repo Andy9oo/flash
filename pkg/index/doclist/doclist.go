@@ -23,9 +23,9 @@ type DocList struct {
 }
 
 // NewList creates a new doclist
-func NewList(root string, limit uint32) *DocList {
-	path := fmt.Sprintf("%v/index.doclist", root)
-	infoPath := fmt.Sprintf("%v/doclist.info", root)
+func NewList(indexpath string, limit uint32) *DocList {
+	path := fmt.Sprintf("%v/index.doclist", indexpath)
+	infoPath := fmt.Sprintf("%v/doclist.info", indexpath)
 
 	l := DocList{
 		path:     path,
@@ -37,9 +37,9 @@ func NewList(root string, limit uint32) *DocList {
 	return &l
 }
 
-// Load loads a doclist located at the given root directory
-func Load(root string, limit uint32) *DocList {
-	l := NewList(root, limit)
+// Load loads a doclist for the given index
+func Load(indexpath string, limit uint32) *DocList {
+	l := NewList(indexpath, limit)
 	l.loadInfo(int64(limit))
 	return l
 }
