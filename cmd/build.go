@@ -20,10 +20,13 @@ import (
 	"errors"
 	"flash/pkg/index"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+var path string
 
 var buildCmd = &cobra.Command{
 	Use:   "build",
@@ -35,18 +38,19 @@ var buildCmd = &cobra.Command{
 		os.RemoveAll(indexpath)
 
 		// Build new index
-		index.Build(viper.GetString("indexpath"), args[0])
+		index.Build(viper.GetString("indexpath"), path)
 	},
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
 			return errors.New("A single directory must be provided")
 		}
 
-		info, err := os.Stat(args[0])
-		if err != nil || info.IsDir() {
+		p, err := filepath.Abs(args[0])
+		if err != nil {
 			return errors.New("Argument must be a valid directory")
 		}
 
+		path = p
 		return nil
 	},
 }
