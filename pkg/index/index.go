@@ -15,17 +15,9 @@ import (
 	"github.com/theckman/yacspin"
 )
 
-// Byte sizes
-const (
-	_      = iota
-	KB int = 1 << (10 * iota)
-	MB
-	GB
-)
-
 const (
 	documentListLimit = 1 << 20
-	partitionLimit    = 250 * MB
+	partitionLimit    = 1 << 24
 	dictionaryLimit   = 1 << 20
 	blockSize         = 1 << 10
 	chunkSize         = 1 << 10
@@ -127,7 +119,7 @@ func (i *Index) Add(path string) {
 		for term := range textChannel {
 			p := i.partitions[len(i.partitions)-1]
 			if p.full() {
-				p.dump()
+				go p.dump()
 				p = i.addPartition()
 			}
 

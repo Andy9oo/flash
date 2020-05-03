@@ -30,10 +30,9 @@ func newPartition(indexpath string, partitionNumber int) *partition {
 func (p *partition) add(term string, docID uint32, offset uint32) {
 	if _, ok := p.postings[term]; !ok {
 		p.postings[term] = postinglist.NewList()
-		p.size += 8
 	}
 	p.postings[term].Add(docID, offset)
-	p.size += 4
+	p.size++
 }
 
 func (p *partition) full() bool {
