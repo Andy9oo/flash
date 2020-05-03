@@ -26,8 +26,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var path string
-
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Builds the index for the given directory",
@@ -38,6 +36,7 @@ var buildCmd = &cobra.Command{
 		os.RemoveAll(indexpath)
 
 		// Build new index
+		path, _ := filepath.Abs(args[0])
 		index.Build(viper.GetString("indexpath"), path)
 	},
 	Args: func(cmd *cobra.Command, args []string) error {
@@ -45,12 +44,13 @@ var buildCmd = &cobra.Command{
 			return errors.New("A single directory must be provided")
 		}
 
-		p, err := filepath.Abs(args[0])
-		if err != nil {
+		path, _ := filepath.Abs(args[0])
+
+		info, err := os.Stat(path)
+		if err != nil || !info.IsDir() {
 			return errors.New("Argument must be a valid directory")
 		}
 
-		path = p
 		return nil
 	},
 }
