@@ -2,9 +2,9 @@ package importer
 
 import (
 	"bufio"
+	"flash/tools/text"
 	"fmt"
 	"os"
-	"strings"
 )
 
 // GetTextChannel Returns a channel from which the text of a file is exported
@@ -29,6 +29,6 @@ func getText(filepath string, c chan string) {
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanWords)
 	for scanner.Scan() {
-		c <- strings.ToLower(scanner.Text())
+		c <- text.Normalize(scanner.Text())
 	}
 }

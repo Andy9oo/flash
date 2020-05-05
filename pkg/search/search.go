@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"flash/pkg/index"
 	"flash/pkg/index/postinglist"
+	"flash/tools/text"
 	"math"
 	"sort"
 	"strings"
@@ -101,7 +102,7 @@ func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[strin
 
 	terms := strings.Split(query, " ")
 	for i := range terms {
-		terms[i] = strings.ToLower(terms[i])
+		terms[i] = text.Normalize(terms[i])
 	}
 
 	preaders := make(map[string]*postinglist.Reader)
