@@ -1,6 +1,6 @@
 # Flash Search 🔦
 
-Flash is a full-text desktop search engine, designed to help users find their files. Using preprocessing flash creates an index, allowing searching without having to crawl the filesystem, substantially reducing search times.
+Flash is a full-text desktop search engine, designed to help users find their files. Using preprocessing techniques, flash creates an index, allowing searching without having to crawl the filesystem, substantially reducing search times.
 
 ## Installation
 Clone the repository:

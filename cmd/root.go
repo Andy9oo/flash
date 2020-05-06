@@ -32,7 +32,7 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "flash",
 	Short: "flash is a full-text desktop search engine",
-	Long:  "flash uses indexed information to search the system for files containing given search terms, without crawling the filesystem during the search.",
+	Long:  "Flash is a full-text desktop search engine, designed to help users find their files. Using preprocessing techniques, flash creates an index, allowing searching without having to crawl the filesystem, substantially reducing search times.",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

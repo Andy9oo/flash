@@ -27,8 +27,8 @@ import (
 
 // findCmd represents the find command
 var findCmd = &cobra.Command{
-	Use:   "find",
-	Short: "Search the index for the given query",
+	Use:   "find \"<query>\"",
+	Short: "Search the index for a query",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		index, err := index.Load(viper.GetString("indexpath"))
 		if err != nil {

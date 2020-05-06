@@ -27,8 +27,8 @@ import (
 )
 
 var buildCmd = &cobra.Command{
-	Use:   "build",
-	Short: "Builds the index for the given directory",
+	Use:   "build <directory_path>",
+	Short: "Builds the index for a given directory",
 	Run: func(cmd *cobra.Command, args []string) {
 		indexpath := viper.GetString("indexpath")
 
