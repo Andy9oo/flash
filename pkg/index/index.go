@@ -93,7 +93,7 @@ func Load(indexpath string) (i *Index, err error) {
 	i = &Index{dir: indexpath}
 	_, err = os.Stat(i.getPostingsPath())
 	if err != nil {
-		return nil, errors.New("Could not find index")
+		return nil, errors.New("Could not find index, has one been built?")
 	}
 
 	i.dict = loadDictionary(indexpath, dictionaryLimit)
