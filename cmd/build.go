@@ -41,14 +41,14 @@ var buildCmd = &cobra.Command{
 	},
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
-			return errors.New("A single directory must be provided")
+			return errors.New("The directory to be indexed must be given")
 		}
 
 		path, _ := filepath.Abs(args[0])
 
 		info, err := os.Stat(path)
 		if err != nil || !info.IsDir() {
-			return errors.New("Argument must be a valid directory")
+			return errors.New("Path given is not a directory")
 		}
 
 		return nil
