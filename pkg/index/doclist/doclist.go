@@ -20,6 +20,7 @@ type DocList struct {
 	totalLength int
 	infoPath    string
 	offsets     map[uint32]int64
+	keys        []int
 }
 
 // NewList creates a new doclist
@@ -82,6 +83,7 @@ func (d *DocList) CalculateOffsets(blockSize int64) {
 
 		if remainingBytes <= 0 || i == d.totalDocs-1 {
 			d.offsets[id] = offset
+			d.keys = append(d.keys, int(id))
 			remainingBytes = blockSize
 		}
 
@@ -89,6 +91,7 @@ func (d *DocList) CalculateOffsets(blockSize int64) {
 		offset += numBytes
 	}
 
+	d.sortKeys()
 	d.dumpInfo()
 }
 
@@ -106,20 +109,13 @@ func (d *DocList) Fetch(id uint32) (doc *Document, ok bool) {
 		return doc, true
 	}
 
-	keys := make([]int, 0, len(d.offsets))
-	for key := range d.offsets {
-		keys = append(keys, int(key))
-	}
-
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-	pos := sort.SearchInts(keys, int(id)) - 1
-
-	if pos == len(keys)-1 {
+	pos := sort.SearchInts(d.keys, int(id)) - 1
+	if pos == len(d.keys)-1 {
 		return nil, false
 	}
 
-	start := d.offsets[uint32(keys[pos])]
-	end := d.offsets[uint32(keys[pos+1])]
+	start := d.offsets[uint32(d.keys[pos])]
+	end := d.offsets[uint32(d.keys[pos+1])]
 
 	return d.findDoc(f, id, start, end)
 }
@@ -181,7 +177,9 @@ func (d *DocList) loadInfo(blockSize int64) {
 		id := readers.ReadUint32(f)
 		offset := readers.ReadUint64(f)
 		d.offsets[id] = int64(offset)
+		d.keys = append(d.keys, int(id))
 	}
+	d.sortKeys()
 }
 
 func (d *DocList) dumpInfo() {
@@ -235,4 +233,8 @@ func (d *DocList) readDoc(reader io.Reader) *Document {
 		path:   string(pbuf),
 		length: len,
 	}
+}
+
+func (d *DocList) sortKeys() {
+	sort.Slice(d.keys, func(i, j int) bool { return d.keys[i] < d.keys[j] })
 }

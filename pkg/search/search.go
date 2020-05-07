@@ -12,8 +12,9 @@ import (
 
 // Engine is the search engine datastructure
 type Engine struct {
-	index *index.Index
-	info  *index.Info
+	index    *index.Index
+	info     *index.Info
+	seenDocs map[uint32]uint32
 }
 
 // Result type
@@ -30,8 +31,9 @@ const (
 // NewEngine creates a search engine for the given index
 func NewEngine(index *index.Index) *Engine {
 	e := Engine{
-		index: index,
-		info:  index.GetInfo(),
+		index:    index,
+		info:     index.GetInfo(),
+		seenDocs: make(map[uint32]uint32),
 	}
 
 	return &e
@@ -134,19 +136,26 @@ func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[strin
 
 // Score returns the score for a doc using the BM25 ranking function
 func (e *Engine) Score(doc, numDocs, frequency uint32, k float64, b float64) float64 {
-	N := float64(e.info.NumDocs)
+	var docLength uint32
+
 	lavg := float64(e.info.TotalLength) / float64(e.info.NumDocs)
+	N := float64(e.info.NumDocs)
 
-	if _, length, ok := e.index.GetDocInfo(doc); ok {
-		Nt := float64(numDocs)
-		f := float64(frequency)
-		l := float64(length)
-
-		TF := (f * (k + 1)) / (f + k*((1-b)+b*(l/lavg)))
-		return math.Log(N/Nt) * TF
+	if len, ok := e.seenDocs[doc]; ok {
+		docLength = len
+	} else if _, len, ok := e.index.GetDocInfo(doc); ok {
+		docLength = len
+		e.seenDocs[doc] = len
+	} else {
+		return 0
 	}
 
-	return 0
+	Nt := float64(numDocs)
+	f := float64(frequency)
+	l := float64(docLength)
+
+	TF := (f * (k + 1)) / (f + k*((1-b)+b*(l/lavg)))
+	return math.Log(N/Nt) * TF
 }
 
 func (e *Engine) calculateRemovedTermsScore(terms []term, preaders map[string]*postinglist.Reader, doc uint32) float64 {

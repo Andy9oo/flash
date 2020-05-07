@@ -15,6 +15,7 @@ type dictionary struct {
 	dictpath  string
 	blockSize int64
 	entries   map[string]int64
+	keys      []string
 }
 
 func loadDictionary(indexpath string, blockSize int64) *dictionary {
@@ -33,6 +34,12 @@ func loadDictionary(indexpath string, blockSize int64) *dictionary {
 	} else {
 		d.loadOffsets()
 	}
+
+	d.keys = make([]string, 0, len(d.entries))
+	for key := range d.entries {
+		d.keys = append(d.keys, key)
+	}
+	sort.Strings(d.keys)
 
 	return &d
 }
@@ -55,20 +62,13 @@ func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 		return buf, true
 	}
 
-	keys := make([]string, 0, len(d.entries))
-	for key := range d.entries {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-	pos := sort.SearchStrings(keys, term) - 1
-
-	if pos == len(keys)-1 {
+	pos := sort.SearchStrings(d.keys, term) - 1
+	if pos == len(d.keys)-1 {
 		return nil, false
 	}
 
-	start := d.entries[keys[pos]]
-	end := d.entries[keys[pos+1]]
+	start := d.entries[d.keys[pos]]
+	end := d.entries[d.keys[pos+1]]
 
 	if buf, ok := indexReader.findPostings(term, start, end); ok {
 		return buf, true
