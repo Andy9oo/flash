@@ -3,7 +3,6 @@ package index
 import (
 	"bytes"
 	"encoding/binary"
-	"flash/pkg/index/postinglist"
 	"flash/tools/readers"
 	"fmt"
 	"os"
@@ -42,14 +41,6 @@ func loadDictionary(indexpath string, blockSize int64) *dictionary {
 	sort.Strings(d.keys)
 
 	return &d
-}
-
-func (d *dictionary) getPostingList(term string) (*postinglist.List, bool) {
-	if buf, ok := d.getPostingBuffer(term); ok {
-		return postinglist.Decode(buf), ok
-	}
-
-	return nil, false
 }
 
 func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {

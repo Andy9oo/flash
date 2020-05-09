@@ -20,8 +20,7 @@ import (
 	"flash/pkg/index"
 	"flash/pkg/search"
 	"fmt"
-	"os"
-	"runtime/pprof"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -41,14 +40,14 @@ var findCmd = &cobra.Command{
 
 		engine := search.NewEngine(index)
 
-		cpu, _ := os.Create("cpu.profile")
-		pprof.StartCPUProfile(cpu)
+		start := time.Now()
 		results := engine.Search(args[0], n)
+
+		fmt.Printf("Found %d results in %v\n", len(results), time.Since(start))
 		for i, result := range results {
 			path, _, _ := index.GetDocInfo(result.ID)
 			fmt.Printf("%v. %v\n", i+1, path)
 		}
-		pprof.StopCPUProfile()
 
 		return nil
 	},
