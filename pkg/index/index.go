@@ -83,7 +83,8 @@ func Build(indexpath, root string) *Index {
 
 	spinner.Stop()
 
-	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\nDoclist: %v\n\nTotal: %v\n", indexDone.Sub(start), mergeDone.Sub(indexDone), dictDone.Sub(mergeDone), docDone.Sub(dictDone), time.Since(start))
+	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\nDoclist: %v\n\nTotal: %v\n",
+		indexDone.Sub(start), mergeDone.Sub(indexDone), dictDone.Sub(mergeDone), docDone.Sub(dictDone), time.Since(start))
 
 	return &i
 }

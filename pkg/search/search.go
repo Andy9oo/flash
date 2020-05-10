@@ -102,7 +102,7 @@ func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[strin
 		})
 	}
 
-	terms := strings.Split(query, " ")
+	terms := strings.Fields(query)
 	for i := range terms {
 		terms[i] = text.Normalize(terms[i])
 	}
