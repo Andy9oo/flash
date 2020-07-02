@@ -37,7 +37,7 @@ var buildCmd = &cobra.Command{
 
 		// Build new index
 		path, _ := filepath.Abs(args[0])
-		index.Build(viper.GetString("indexpath"), path)
+		index.Build(indexpath, path)
 	},
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
