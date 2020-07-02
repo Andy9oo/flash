@@ -41,7 +41,7 @@ func NewList(indexpath string, limit uint32) *DocList {
 // Load loads a doclist for the given index
 func Load(indexpath string, limit uint32) *DocList {
 	l := NewList(indexpath, limit)
-	l.loadInfo(int64(limit))
+	l.loadInfo()
 	return l
 }
 
@@ -60,39 +60,6 @@ func (d *DocList) Add(file string, length uint32) {
 
 	d.totalLength += int(length)
 	d.totalDocs++
-}
-
-// CalculateOffsets calculates the file offsets using the given blocksize
-func (d *DocList) CalculateOffsets(blockSize int64) {
-	f, err := os.Open(d.path)
-	if err != nil {
-		log.Fatal("Could not open doclist file")
-	}
-	defer f.Close()
-
-	var remainingBytes int64
-	var offset int64
-	for i := uint32(0); i < d.totalDocs; i++ {
-		id := readers.ReadUint32(f)
-		_ = readers.ReadUint32(f) // Read length
-		pathLength := readers.ReadUint32(f)
-
-		// 12 bytes for id, length, and pathLength
-		numBytes := int64(12 + pathLength)
-		remainingBytes -= numBytes
-
-		if remainingBytes <= 0 || i == d.totalDocs-1 {
-			d.offsets[id] = offset
-			d.keys = append(d.keys, int(id))
-			remainingBytes = blockSize
-		}
-
-		f.Seek(int64(pathLength), os.SEEK_CUR)
-		offset += numBytes
-	}
-
-	d.sortKeys()
-	d.dumpInfo()
 }
 
 // Fetch gets the document with the given id
@@ -126,14 +93,23 @@ func (d *DocList) Dump() {
 		return
 	}
 
-	f, err := os.OpenFile(d.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	f, err := os.OpenFile(d.path, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		log.Fatal("Could not open document list file")
 	}
 	defer f.Close()
 
+	// Add the offset for the first doc in the block
+	offset, _ := f.Seek(0, os.SEEK_END)
+	if offset == 0 {
+		d.offsets[d.docs[0].id] = offset
+	}
+
 	buf := new(bytes.Buffer)
-	for _, doc := range d.docs {
+	for i, doc := range d.docs {
+		if i == len(d.docs)-1 {
+			d.offsets[d.docs[i].id] = offset + int64(buf.Len())
+		}
 		binary.Write(buf, binary.LittleEndian, doc.id)
 		binary.Write(buf, binary.LittleEndian, doc.length)
 		binary.Write(buf, binary.LittleEndian, uint32(len(doc.path)))
@@ -142,6 +118,9 @@ func (d *DocList) Dump() {
 	buf.WriteTo(f)
 
 	d.docs = d.docs[:0]
+
+	d.sortKeys()
+	d.dumpInfo()
 }
 
 // GetID returns a unique id in the doclist
@@ -159,7 +138,7 @@ func (d *DocList) NumDocs() uint32 {
 	return d.totalDocs
 }
 
-func (d *DocList) loadInfo(blockSize int64) {
+func (d *DocList) loadInfo() {
 	f, err := os.Open(d.infoPath)
 	if err != nil {
 		fmt.Println(err)

@@ -77,14 +77,12 @@ func Build(indexpath, root string) *Index {
 	i.dict = loadDictionary(i.dir, dictionaryLimit)
 	dictDone := time.Now()
 
-	spinner.Message("Loading Documents")
-	i.docs.CalculateOffsets(blockSize)
-	docDone := time.Now()
+	i.docs.Dump()
 
 	spinner.Stop()
 
-	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\nDoclist: %v\n\nTotal: %v\n",
-		indexDone.Sub(start), mergeDone.Sub(indexDone), dictDone.Sub(mergeDone), docDone.Sub(dictDone), time.Since(start))
+	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\n\nTotal: %v\n",
+		indexDone.Sub(start), mergeDone.Sub(indexDone), dictDone.Sub(mergeDone), time.Since(start))
 
 	return &i
 }
