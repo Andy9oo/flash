@@ -10,23 +10,22 @@ import (
 )
 
 type dictionary struct {
-	indexpath string
-	dictpath  string
-	blockSize int64
-	entries   map[string]int64
-	keys      []string
+	indexpath  string
+	generation int
+	blockSize  int64
+	entries    map[string]int64
+	keys       []string
 }
 
-func loadDictionary(indexpath string, blockSize int64) *dictionary {
-	path := fmt.Sprintf("%v/index.dict", indexpath)
+func loadDictionary(indexpath string, generation int, blockSize int64) *dictionary {
 	d := dictionary{
-		indexpath: indexpath,
-		dictpath:  path,
-		blockSize: blockSize,
-		entries:   make(map[string]int64),
+		indexpath:  indexpath,
+		generation: generation,
+		blockSize:  blockSize,
+		entries:    make(map[string]int64),
 	}
 
-	_, err := os.Stat(path)
+	_, err := os.Stat(d.getPath())
 	if err != nil {
 		d.calculateOffsets()
 		d.dump()
@@ -44,7 +43,7 @@ func loadDictionary(indexpath string, blockSize int64) *dictionary {
 }
 
 func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
-	postingsFile := fmt.Sprintf("%v/index.postings", d.indexpath)
+	postingsFile := fmt.Sprintf("%v/part_%d.postings", d.indexpath, d.generation)
 	indexReader := NewReader(postingsFile)
 	defer indexReader.Close()
 
@@ -68,7 +67,7 @@ func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 }
 
 func (d *dictionary) loadOffsets() {
-	f, err := os.Open(d.dictpath)
+	f, err := os.Open(d.getPath())
 	if err != nil {
 		fmt.Println("Could not open dictionary file")
 		return
@@ -88,7 +87,7 @@ func (d *dictionary) loadOffsets() {
 }
 
 func (d *dictionary) calculateOffsets() {
-	postingsFile := fmt.Sprintf("%v/index.postings", d.indexpath)
+	postingsFile := fmt.Sprintf("%v/part_%d.postings", d.indexpath, d.generation)
 	reader := NewReader(postingsFile)
 
 	var remainingBytes int64
@@ -113,7 +112,7 @@ func (d *dictionary) calculateOffsets() {
 }
 
 func (d *dictionary) dump() {
-	f, err := os.Create(d.dictpath)
+	f, err := os.Create(d.getPath())
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -128,4 +127,8 @@ func (d *dictionary) dump() {
 	}
 
 	buf.WriteTo(f)
+}
+
+func (d *dictionary) getPath() string {
+	return fmt.Sprintf("%v/part_%d.dict", d.indexpath, d.generation)
 }

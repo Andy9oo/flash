@@ -1,8 +1,7 @@
-package search
+package index
 
 import (
 	"container/heap"
-	"flash/pkg/index"
 	"flash/pkg/index/postinglist"
 	"flash/tools/text"
 	"math"
@@ -11,9 +10,9 @@ import (
 )
 
 // Engine is the search engine datastructure
-type Engine struct {
-	index    *index.Index
-	info     *index.Info
+type engine struct {
+	index    *Index
+	info     *Info
 	seenDocs map[uint32]uint32
 }
 
@@ -29,8 +28,8 @@ const (
 )
 
 // NewEngine creates a search engine for the given index
-func NewEngine(index *index.Index) *Engine {
-	e := Engine{
+func newEngine(index *Index) *engine {
+	e := engine{
 		index:    index,
 		info:     index.GetInfo(),
 		seenDocs: make(map[uint32]uint32),
@@ -40,8 +39,8 @@ func NewEngine(index *index.Index) *Engine {
 }
 
 // Search query
-func (e *Engine) Search(query string, n int) []*Result {
-	results, terms, preaders := e.initQuery(query, n)
+func (e *engine) search(part *Partition, query string, n int) []*Result {
+	results, terms, preaders := e.initQuery(part, query, n)
 	var removedTerms []term
 	var removedScore float64
 
@@ -93,7 +92,7 @@ func (e *Engine) Search(query string, n int) []*Result {
 	return finalResults
 }
 
-func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[string]*postinglist.Reader) {
+func (e *engine) initQuery(part *Partition, query string, n int) (resultHeap, termHeap, map[string]*postinglist.Reader) {
 	var results resultHeap
 	for i := 0; i < n; i++ {
 		heap.Push(&results, Result{
@@ -112,7 +111,7 @@ func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[strin
 	var theap termHeap
 	for i := range terms {
 		if _, ok := preaders[terms[i]]; !ok {
-			if pr, ok := e.index.GetPostingReader(terms[i]); ok {
+			if pr, ok := part.GetPostingReader(terms[i]); ok {
 				preaders[terms[i]] = pr
 
 				ok := pr.Read()
@@ -135,7 +134,7 @@ func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[strin
 }
 
 // Score returns the score for a doc using the BM25 ranking function
-func (e *Engine) Score(doc, numDocs, frequency uint32, k float64, b float64) float64 {
+func (e *engine) Score(doc, numDocs, frequency uint32, k float64, b float64) float64 {
 	var docLength uint32
 
 	lavg := float64(e.info.TotalLength) / float64(e.info.NumDocs)
@@ -158,7 +157,7 @@ func (e *Engine) Score(doc, numDocs, frequency uint32, k float64, b float64) flo
 	return math.Log(N/Nt) * TF
 }
 
-func (e *Engine) calculateRemovedTermsScore(terms []term, preaders map[string]*postinglist.Reader, doc uint32) float64 {
+func (e *engine) calculateRemovedTermsScore(terms []term, preaders map[string]*postinglist.Reader, doc uint32) float64 {
 	score := 0.0
 	for t := range terms {
 		reader := preaders[terms[t].value]

@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"flash/pkg/index"
-	"flash/pkg/search"
 	"fmt"
 	"time"
 
@@ -37,16 +36,12 @@ var findCmd = &cobra.Command{
 		}
 
 		n, _ := cmd.Flags().GetInt("num_results")
-
-		engine := search.NewEngine(index)
-
 		start := time.Now()
-		results := engine.Search(args[0], n)
-
+		results := index.Search(args[0], n)
 		fmt.Printf("Found %d results in %v\n", len(results), time.Since(start))
 		for i, result := range results {
 			path, _, _ := index.GetDocInfo(result.ID)
-			fmt.Printf("%v. %v\n", i+1, path)
+			fmt.Printf("%v. %v (%v)\n", i+1, path, result.Score)
 		}
 
 		return nil

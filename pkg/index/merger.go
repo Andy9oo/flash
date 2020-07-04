@@ -11,13 +11,13 @@ import (
 type merger struct {
 	dir       string
 	output    *os.File
-	part      *partition
-	paritions []*partition
+	part      *Partition
+	paritions []*Partition
 	readers   []*Reader
 	finished  int
 }
 
-func merge(dir string, outID int, partitions []*partition) *partition {
+func merge(dir string, outID int, partitions []*Partition) *Partition {
 	m := merger{dir: dir, paritions: partitions, part: newPartition(dir, outID)}
 	m.createOutputFile()
 	defer m.output.Close()
@@ -90,7 +90,7 @@ func (m *merger) createOutputFile() {
 	m.output = f
 }
 
-func (m *merger) openReaders(partitions []*partition) {
+func (m *merger) openReaders(partitions []*Partition) {
 	for i := range partitions {
 		m.readers = append(m.readers, NewReader(partitions[i].getPath()))
 	}

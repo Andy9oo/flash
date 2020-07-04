@@ -1,15 +1,17 @@
 package index
 
 import (
-	"errors"
+	"bufio"
+	"bytes"
+	"encoding/binary"
 	"flash/pkg/importer"
 	"flash/pkg/index/doclist"
-	"flash/pkg/index/postinglist"
 	"fmt"
 	"log"
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/theckman/yacspin"
@@ -17,7 +19,7 @@ import (
 
 const (
 	documentListLimit = 1 << 20
-	partitionLimit    = 1 << 24
+	partitionLimit    = 1 << 18
 	dictionaryLimit   = 1 << 20
 	blockSize         = 1 << 10
 	chunkSize         = 1 << 10
@@ -26,9 +28,8 @@ const (
 // Index datastructure
 type Index struct {
 	dir        string
-	dict       *dictionary
 	docs       *doclist.DocList
-	partitions []*partition
+	partitions []*Partition
 	numParts   int
 }
 
@@ -67,35 +68,23 @@ func Build(indexpath, root string) *Index {
 
 	spinner.Message("Indexing Directory")
 	i.index(root)
-	indexDone := time.Now()
-
-	spinner.Message("Merging Partitions")
-	i.mergeParitions()
-	mergeDone := time.Now()
-
-	spinner.Message("Loading Dictionary")
-	i.dict = loadDictionary(i.dir, dictionaryLimit)
-	dictDone := time.Now()
-
-	i.docs.Dump()
 
 	spinner.Stop()
 
-	fmt.Printf("Indexing: %v\nMerging: %v\nDictionary: %v\n\nTotal: %v\n",
-		indexDone.Sub(start), mergeDone.Sub(indexDone), dictDone.Sub(mergeDone), time.Since(start))
-
+	i.dumpInfo()
+	fmt.Printf("Indexing: %v\n", time.Since(start))
 	return &i
 }
 
 // Load opens the index at the indexpath
 func Load(indexpath string) (i *Index, err error) {
 	i = &Index{dir: indexpath}
-	_, err = os.Stat(i.getPostingsPath())
-	if err != nil {
-		return nil, errors.New("Could not find index, has one been built?")
-	}
+	// _, err = os.Stat(i.getPostingsPath())
+	// if err != nil {
+	// 	return nil, errors.New("Could not find index, has one been built?")
+	// }
 
-	i.dict = loadDictionary(indexpath, dictionaryLimit)
+	i.loadInfo()
 	i.docs = doclist.Load(indexpath, documentListLimit)
 
 	return i, nil
@@ -118,7 +107,7 @@ func (i *Index) Add(path string) {
 		for term := range textChannel {
 			p := i.partitions[len(i.partitions)-1]
 			if p.full() {
-				go p.dump()
+				p.dump()
 				p = i.addPartition()
 			}
 
@@ -130,14 +119,39 @@ func (i *Index) Add(path string) {
 	}
 }
 
-// GetPostingReader returns a posting reader for a term
-func (i *Index) GetPostingReader(term string) (*postinglist.Reader, bool) {
-	if buf, ok := i.dict.getPostingBuffer(term); ok {
-		return postinglist.NewReader(buf), true
+func (i *Index) Search(query string, n int) []*Result {
+	se := newEngine(i)
+
+	resMap := make(map[uint32]*Result)
+
+	for p := range i.partitions {
+		results := se.search(i.partitions[p], query, n)
+
+		for r := range results {
+			if _, ok := resMap[results[r].ID]; ok {
+				resMap[results[r].ID].Score += results[r].Score
+			} else {
+				resMap[results[r].ID] = results[r]
+			}
+		}
 	}
 
-	return nil, false
+	var finalResults []*Result
+	for i := range resMap {
+		finalResults = append(finalResults, resMap[i])
+	}
+
+	sort.Slice(finalResults, func(i, j int) bool { return finalResults[i].Score > finalResults[j].Score })
+
+	return finalResults[:n]
 }
+
+// GetPostingReader returns a posting reader for a term
+// func (i *Index) GetPostingReader(term string) (*postinglist.Reader, bool) {
+// 	if buf, ok := i.dict.getPostingBuffer(term); ok {
+// 		return postinglist.NewReader(buf), true
+// 	}
+// }
 
 // GetInfo returns information about the index
 func (i *Index) GetInfo() *Info {
@@ -155,6 +169,45 @@ func (i *Index) GetDocInfo(id uint32) (path string, length uint32, ok bool) {
 		return doc.Path(), doc.Length(), true
 	}
 	return "", 0, false
+}
+
+func (i *Index) loadInfo() {
+	path := fmt.Sprintf("%v/index.info", i.dir)
+	f, err := os.Open(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	reader := bufio.NewReader(f)
+	buf := make([]byte, 4)
+
+	for {
+		n, err := reader.Read(buf)
+		if n == 0 || err != nil {
+			break
+		}
+
+		gen := binary.LittleEndian.Uint32(buf)
+
+		i.partitions = append(i.partitions, loadPartition(i.dir, int(gen)))
+	}
+}
+
+func (i *Index) dumpInfo() {
+	path := fmt.Sprintf("%v/index.info", i.dir)
+	f, err := os.Create(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	buf := new(bytes.Buffer)
+	for p := range i.partitions {
+		binary.Write(buf, binary.LittleEndian, uint32(i.partitions[p].generation))
+	}
+
+	buf.WriteTo(f)
 }
 
 func (i *Index) index(dir string) {
@@ -181,9 +234,9 @@ func (i *Index) index(dir string) {
 	i.clearMemory()
 }
 
-func (i *Index) addPartition() *partition {
+func (i *Index) addPartition() *Partition {
 	i.numParts++
-	p := newPartition(i.dir, i.numParts)
+	p := newPartition(i.dir, i.numParts) // TODO change to zero
 	i.partitions = append(i.partitions, p)
 	return p
 }
@@ -194,7 +247,7 @@ func (i *Index) mergeParitions() {
 	for len(partitions) != 1 {
 		numParts := len(partitions)
 		numChunks := int(math.Ceil(float64(numParts) / chunkSize))
-		chunks := make([][]*partition, 0, numChunks)
+		chunks := make([][]*Partition, 0, numChunks)
 
 		for c := 0; c < numParts; c += chunkSize {
 			if c+chunkSize >= numParts {
@@ -204,14 +257,14 @@ func (i *Index) mergeParitions() {
 			}
 		}
 
-		partitions = make([]*partition, len(chunks))
+		partitions = make([]*Partition, len(chunks))
 		for c := range chunks {
 			i.numParts++
 			partitions[c] = merge(i.dir, i.numParts, chunks[c])
 		}
 	}
 
-	i.partitions = make([]*partition, 0)
+	i.partitions = make([]*Partition, 0)
 	i.numParts = 0
 
 	os.Rename(partitions[0].getPath(), i.getPostingsPath())

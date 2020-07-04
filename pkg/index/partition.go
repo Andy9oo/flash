@@ -10,24 +10,40 @@ import (
 	"sort"
 )
 
-type partition struct {
-	indexpath       string
-	partitionNumber int
-	postings        map[string]*postinglist.List
-	size            int
+type Partition struct {
+	indexpath  string
+	generation int
+	postings   map[string]*postinglist.List
+	dict       *dictionary
+	size       int
 }
 
-func newPartition(indexpath string, partitionNumber int) *partition {
-	p := partition{
-		indexpath:       indexpath,
-		partitionNumber: partitionNumber,
-		postings:        make(map[string]*postinglist.List),
+func newPartition(indexpath string, generation int) *Partition {
+	p := Partition{
+		indexpath:  indexpath,
+		generation: generation,
+		postings:   make(map[string]*postinglist.List),
 	}
 
 	return &p
 }
 
-func (p *partition) add(term string, docID uint32, offset uint32) {
+func loadPartition(indexpath string, generation int) *Partition {
+	p := newPartition(indexpath, generation)
+	p.dict = loadDictionary(indexpath, generation, dictionaryLimit)
+
+	return p
+}
+
+// GetPostingReader returns a posting reader for a term
+func (p *Partition) GetPostingReader(term string) (*postinglist.Reader, bool) {
+	if buf, ok := p.dict.getPostingBuffer(term); ok {
+		return postinglist.NewReader(buf), true
+	}
+	return nil, false
+}
+
+func (p *Partition) add(term string, docID uint32, offset uint32) {
 	if _, ok := p.postings[term]; !ok {
 		p.postings[term] = postinglist.NewList()
 	}
@@ -35,11 +51,11 @@ func (p *partition) add(term string, docID uint32, offset uint32) {
 	p.size++
 }
 
-func (p *partition) full() bool {
+func (p *Partition) full() bool {
 	return p.size >= partitionLimit
 }
 
-func (p *partition) dump() {
+func (p *Partition) dump() {
 	if len(p.postings) == 0 {
 		return
 	}
@@ -74,8 +90,10 @@ func (p *partition) dump() {
 	buf.WriteTo(f)
 	p.postings = nil
 	p.size = 0
+
+	p.dict = loadDictionary(p.indexpath, p.generation, dictionaryLimit)
 }
 
-func (p *partition) getPath() string {
-	return fmt.Sprintf("%v/p%d.part", p.indexpath, p.partitionNumber)
+func (p *Partition) getPath() string {
+	return fmt.Sprintf("%v/part_%d.postings", p.indexpath, p.generation)
 }
