@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"flash/pkg/index"
+	"flash/pkg/search"
 	"fmt"
 	"time"
 
@@ -30,14 +31,15 @@ var findCmd = &cobra.Command{
 	Use:   "find \"<query>\"",
 	Short: "Search the index for a query",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		index, err := index.Load(viper.GetString("indexpath"))
-		if err != nil {
-			return err
-		}
+		index := index.Load(viper.GetString("indexpath"))
+
+		engine := search.NewEngine(index)
 
 		n, _ := cmd.Flags().GetInt("num_results")
 		start := time.Now()
-		results := index.Search(args[0], n)
+
+		results := engine.Search(args[0], n)
+
 		fmt.Printf("Found %d results in %v\n", len(results), time.Since(start))
 		for i, result := range results {
 			path, _, _ := index.GetDocInfo(result.ID)

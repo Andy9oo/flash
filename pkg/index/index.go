@@ -6,15 +6,12 @@ import (
 	"encoding/binary"
 	"flash/pkg/importer"
 	"flash/pkg/index/doclist"
+	"flash/pkg/index/postinglist"
 	"fmt"
 	"log"
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
-	"time"
-
-	"github.com/theckman/yacspin"
 )
 
 const (
@@ -29,7 +26,7 @@ const (
 type Index struct {
 	dir        string
 	docs       *doclist.DocList
-	partitions []*Partition
+	partitions []*partition
 	numParts   int
 }
 
@@ -49,45 +46,18 @@ func Build(indexpath, root string) *Index {
 
 	i.createDir()
 	i.addPartition()
-
-	cfg := yacspin.Config{
-		CharSet:         yacspin.CharSets[59],
-		Frequency:       100 * time.Millisecond,
-		Suffix:          " Building Index",
-		SuffixAutoColon: true,
-		StopCharacter:   "✓",
-		StopMessage:     "Done!",
-		Colors:          []string{"fgYellow"},
-		StopColors:      []string{"fgGreen"},
-		ColorAll:        true,
-	}
-
-	spinner, _ := yacspin.New(cfg)
-	spinner.Start()
-	start := time.Now()
-
-	spinner.Message("Indexing Directory")
 	i.index(root)
-
-	spinner.Stop()
-
 	i.dumpInfo()
-	fmt.Printf("Indexing: %v\n", time.Since(start))
+
 	return &i
 }
 
 // Load opens the index at the indexpath
-func Load(indexpath string) (i *Index, err error) {
-	i = &Index{dir: indexpath}
-	// _, err = os.Stat(i.getPostingsPath())
-	// if err != nil {
-	// 	return nil, errors.New("Could not find index, has one been built?")
-	// }
-
+func Load(indexpath string) *Index {
+	i := &Index{dir: indexpath}
 	i.loadInfo()
 	i.docs = doclist.Load(indexpath, documentListLimit)
-
-	return i, nil
+	return i
 }
 
 // Add adds the given file or directory to the index
@@ -98,9 +68,7 @@ func (i *Index) Add(path string) {
 		return
 	}
 
-	if stat.IsDir() {
-		i.index(path)
-	} else {
+	if !stat.IsDir() {
 		textChannel := importer.GetTextChannel(path)
 		var offset uint32
 
@@ -116,42 +84,21 @@ func (i *Index) Add(path string) {
 		}
 
 		i.docs.Add(path, offset)
+	} else {
+		i.index(path)
 	}
 }
 
-func (i *Index) Search(query string, n int) []*Result {
-	se := newEngine(i)
-
-	resMap := make(map[uint32]*Result)
-
-	for p := range i.partitions {
-		results := se.search(i.partitions[p], query, n)
-
-		for r := range results {
-			if _, ok := resMap[results[r].ID]; ok {
-				resMap[results[r].ID].Score += results[r].Score
-			} else {
-				resMap[results[r].ID] = results[r]
-			}
+// GetPostingReaders returns a list of posting readers for the given term
+func (i *Index) GetPostingReaders(term string) []*postinglist.Reader {
+	var readers []*postinglist.Reader
+	for _, p := range i.partitions {
+		if r, ok := p.GetPostingReader(term); ok {
+			readers = append(readers, r)
 		}
 	}
-
-	var finalResults []*Result
-	for i := range resMap {
-		finalResults = append(finalResults, resMap[i])
-	}
-
-	sort.Slice(finalResults, func(i, j int) bool { return finalResults[i].Score > finalResults[j].Score })
-
-	return finalResults[:n]
+	return readers
 }
-
-// GetPostingReader returns a posting reader for a term
-// func (i *Index) GetPostingReader(term string) (*postinglist.Reader, bool) {
-// 	if buf, ok := i.dict.getPostingBuffer(term); ok {
-// 		return postinglist.NewReader(buf), true
-// 	}
-// }
 
 // GetInfo returns information about the index
 func (i *Index) GetInfo() *Info {
@@ -159,7 +106,6 @@ func (i *Index) GetInfo() *Info {
 		NumDocs:     i.docs.NumDocs(),
 		TotalLength: i.docs.TotalLength(),
 	}
-
 	return &info
 }
 
@@ -234,7 +180,7 @@ func (i *Index) index(dir string) {
 	i.clearMemory()
 }
 
-func (i *Index) addPartition() *Partition {
+func (i *Index) addPartition() *partition {
 	i.numParts++
 	p := newPartition(i.dir, i.numParts) // TODO change to zero
 	i.partitions = append(i.partitions, p)
@@ -247,7 +193,7 @@ func (i *Index) mergeParitions() {
 	for len(partitions) != 1 {
 		numParts := len(partitions)
 		numChunks := int(math.Ceil(float64(numParts) / chunkSize))
-		chunks := make([][]*Partition, 0, numChunks)
+		chunks := make([][]*partition, 0, numChunks)
 
 		for c := 0; c < numParts; c += chunkSize {
 			if c+chunkSize >= numParts {
@@ -257,14 +203,14 @@ func (i *Index) mergeParitions() {
 			}
 		}
 
-		partitions = make([]*Partition, len(chunks))
+		partitions = make([]*partition, len(chunks))
 		for c := range chunks {
 			i.numParts++
 			partitions[c] = merge(i.dir, i.numParts, chunks[c])
 		}
 	}
 
-	i.partitions = make([]*Partition, 0)
+	i.partitions = make([]*partition, 0)
 	i.numParts = 0
 
 	os.Rename(partitions[0].getPath(), i.getPostingsPath())

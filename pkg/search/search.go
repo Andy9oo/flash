@@ -1,8 +1,8 @@
-package index
+package search
 
 import (
 	"container/heap"
-	"flash/pkg/index/postinglist"
+	"flash/pkg/index"
 	"flash/tools/text"
 	"math"
 	"sort"
@@ -10,9 +10,9 @@ import (
 )
 
 // Engine is the search engine datastructure
-type engine struct {
-	index    *Index
-	info     *Info
+type Engine struct {
+	index    *index.Index
+	info     *index.Info
 	seenDocs map[uint32]uint32
 }
 
@@ -28,8 +28,8 @@ const (
 )
 
 // NewEngine creates a search engine for the given index
-func newEngine(index *Index) *engine {
-	e := engine{
+func NewEngine(index *index.Index) *Engine {
+	e := Engine{
 		index:    index,
 		info:     index.GetInfo(),
 		seenDocs: make(map[uint32]uint32),
@@ -39,8 +39,8 @@ func newEngine(index *Index) *engine {
 }
 
 // Search query
-func (e *engine) search(part *Partition, query string, n int) []*Result {
-	results, terms, preaders := e.initQuery(part, query, n)
+func (e *Engine) Search(query string, n int) []*Result {
+	results, terms, treaders := e.initQuery(query, n)
 	var removedTerms []term
 	var removedScore float64
 
@@ -53,14 +53,16 @@ func (e *engine) search(part *Partition, query string, n int) []*Result {
 		score := 0.0
 		for terms[0].nextDoc == doc && terms[0].ok {
 			t := terms[0].value
-			numDocs := preaders[t].NumDocs()
+			numDocs := treaders[t].numDocs
 			freq := terms[0].frequency
 
 			score += e.Score(doc, numDocs, freq, k1, b)
-			score += e.calculateRemovedTermsScore(removedTerms, preaders, doc)
+			score += e.calculateRemovedTermsScore(removedTerms, treaders, doc)
 
-			terms[0].ok = preaders[t].Read()
-			terms[0].nextDoc, terms[0].frequency, _ = preaders[t].Data()
+			treaders[t].advanceDoc()
+			terms[0].ok = !treaders[t].done()
+			terms[0].nextDoc = treaders[t].nextDoc
+			terms[0].frequency = treaders[t].frequency
 
 			heap.Fix(&terms, 0)
 		}
@@ -92,7 +94,7 @@ func (e *engine) search(part *Partition, query string, n int) []*Result {
 	return finalResults
 }
 
-func (e *engine) initQuery(part *Partition, query string, n int) (resultHeap, termHeap, map[string]*postinglist.Reader) {
+func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[string]*termReader) {
 	var results resultHeap
 	for i := 0; i < n; i++ {
 		heap.Push(&results, Result{
@@ -106,37 +108,30 @@ func (e *engine) initQuery(part *Partition, query string, n int) (resultHeap, te
 		terms[i] = text.Normalize(terms[i])
 	}
 
-	preaders := make(map[string]*postinglist.Reader)
+	treaders := make(map[string]*termReader)
 
 	var theap termHeap
 	for i := range terms {
-		if _, ok := preaders[terms[i]]; !ok {
-			if pr, ok := part.GetPostingReader(terms[i]); ok {
-				preaders[terms[i]] = pr
+		tr := newTermReader(e.index.GetPostingReaders(terms[i]))
+		treaders[terms[i]] = tr
 
-				ok := pr.Read()
-				id, freq, _ := pr.Data()
-
-				t := term{
-					value:     terms[i],
-					frequency: freq,
-					nextDoc:   id,
-					maxScore:  calculateMaxScore(e.info, pr.NumDocs()),
-					ok:        ok,
-				}
-
-				heap.Push(&theap, t)
-			}
+		t := term{
+			value:     terms[i],
+			frequency: tr.frequency,
+			nextDoc:   tr.nextDoc,
+			maxScore:  calculateMaxScore(e.info, tr.numDocs),
+			ok:        !tr.done(),
 		}
+
+		heap.Push(&theap, t)
 	}
 
-	return results, theap, preaders
+	return results, theap, treaders
 }
 
 // Score returns the score for a doc using the BM25 ranking function
-func (e *engine) Score(doc, numDocs, frequency uint32, k float64, b float64) float64 {
+func (e *Engine) Score(doc, numDocs, frequency uint32, k float64, b float64) float64 {
 	var docLength uint32
-
 	lavg := float64(e.info.TotalLength) / float64(e.info.NumDocs)
 	N := float64(e.info.NumDocs)
 
@@ -157,19 +152,21 @@ func (e *engine) Score(doc, numDocs, frequency uint32, k float64, b float64) flo
 	return math.Log(N/Nt) * TF
 }
 
-func (e *engine) calculateRemovedTermsScore(terms []term, preaders map[string]*postinglist.Reader, doc uint32) float64 {
+func (e *Engine) calculateRemovedTermsScore(terms []term, treaders map[string]*termReader, doc uint32) float64 {
 	score := 0.0
 	for t := range terms {
-		reader := preaders[terms[t].value]
+		reader := treaders[terms[t].value]
 
 		for terms[t].nextDoc < doc && terms[t].ok {
-			terms[t].ok = reader.Read()
-			terms[t].nextDoc, terms[t].frequency, _ = reader.Data()
+			reader.advanceDoc()
+
+			terms[t].ok = !reader.done()
+			terms[t].nextDoc = reader.nextDoc
+			terms[t].frequency = reader.frequency
 		}
 
-		// If the doc contains the term
 		if terms[t].nextDoc == doc {
-			score += e.Score(doc, reader.NumDocs(), terms[t].frequency, k1, b)
+			score += e.Score(doc, reader.numDocs, terms[t].frequency, k1, b)
 		}
 	}
 	return score

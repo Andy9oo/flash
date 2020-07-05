@@ -53,7 +53,7 @@ func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 	}
 
 	pos := sort.SearchStrings(d.keys, term) - 1
-	if pos == len(d.keys)-1 {
+	if pos == -1 || pos == len(d.keys)-1 {
 		return nil, false
 	}
 
@@ -63,6 +63,7 @@ func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 	if buf, ok := indexReader.findPostings(term, start, end); ok {
 		return buf, true
 	}
+
 	return nil, false
 }
 
