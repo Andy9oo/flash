@@ -30,13 +30,25 @@ func newPartition(indexpath string, generation int) *partition {
 
 func loadPartition(indexpath string, generation int) *partition {
 	p := newPartition(indexpath, generation)
-	p.dict = loadDictionary(indexpath, generation, dictionaryLimit)
+
+	if generation == 0 {
+		p.loadPostings()
+	} else {
+		p.dict = loadDictionary(indexpath, generation, dictionaryLimit)
+	}
 
 	return p
 }
 
 // GetPostingReader returns a posting reader for a term
 func (p *partition) GetPostingReader(term string) (*postinglist.Reader, bool) {
+	if p.generation == 0 {
+		if pl, ok := p.postings[term]; ok {
+			return postinglist.NewReader(pl.Bytes()), true
+		}
+		return nil, false
+	}
+
 	if buf, ok := p.dict.getPostingBuffer(term); ok {
 		return postinglist.NewReader(buf), true
 	}
@@ -66,6 +78,12 @@ func (p *partition) dump() {
 	}
 	defer f.Close()
 
+	p.bytes().WriteTo(f)
+	p.postings = nil
+	p.size = 0
+}
+
+func (p *partition) bytes() *bytes.Buffer {
 	terms := make([]string, len(p.postings))
 
 	count := 0
@@ -87,13 +105,30 @@ func (p *partition) dump() {
 		binary.Write(buf, binary.LittleEndian, postings.Bytes())
 	}
 
-	buf.WriteTo(f)
-	p.postings = nil
-	p.size = 0
+	return buf
+}
 
+func (p *partition) loadPostings() {
+	reader := NewReader(p.getPath())
+	defer reader.Close()
+
+	for !reader.done {
+		term := reader.currentTerm
+		reader.fetchPostingsLength()
+		buf := reader.fetchPostings()
+
+		p.postings[term] = postinglist.Decode(buf)
+		reader.fetchNextTerm()
+	}
+}
+
+func (p *partition) loadDict() {
 	p.dict = loadDictionary(p.indexpath, p.generation, dictionaryLimit)
 }
 
 func (p *partition) getPath() string {
+	if p.generation == 0 {
+		return fmt.Sprintf("%v/temp.postings", p.indexpath)
+	}
 	return fmt.Sprintf("%v/part_%d.postings", p.indexpath, p.generation)
 }

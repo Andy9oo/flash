@@ -9,9 +9,9 @@ import (
 	"flash/pkg/index/postinglist"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 const (
@@ -27,7 +27,7 @@ type Index struct {
 	dir        string
 	docs       *doclist.DocList
 	partitions []*partition
-	numParts   int
+	curentPart *partition
 }
 
 // Info contains information about an index
@@ -39,9 +39,8 @@ type Info struct {
 // Build builds a new index for the given directory
 func Build(indexpath, root string) *Index {
 	i := Index{
-		dir:      indexpath,
-		docs:     doclist.NewList(indexpath, documentListLimit),
-		numParts: -1,
+		dir:  indexpath,
+		docs: doclist.NewList(indexpath, documentListLimit),
 	}
 
 	i.createDir()
@@ -70,16 +69,14 @@ func (i *Index) Add(path string) {
 
 	if !stat.IsDir() {
 		textChannel := importer.GetTextChannel(path)
-		var offset uint32
 
+		var offset uint32
 		for term := range textChannel {
-			p := i.partitions[len(i.partitions)-1]
-			if p.full() {
-				p.dump()
-				p = i.addPartition()
+			if i.curentPart.full() {
+				i.mergeParitions()
 			}
 
-			p.add(term, i.docs.GetID(), offset)
+			i.curentPart.add(term, i.docs.GetID(), offset)
 			offset++
 		}
 
@@ -92,7 +89,7 @@ func (i *Index) Add(path string) {
 // GetPostingReaders returns a list of posting readers for the given term
 func (i *Index) GetPostingReaders(term string) []*postinglist.Reader {
 	var readers []*postinglist.Reader
-	for _, p := range i.partitions {
+	for _, p := range append(i.partitions, i.curentPart) {
 		if r, ok := p.GetPostingReader(term); ok {
 			readers = append(readers, r)
 		}
@@ -134,9 +131,15 @@ func (i *Index) loadInfo() {
 			break
 		}
 
-		gen := binary.LittleEndian.Uint32(buf)
+		gen := int(binary.LittleEndian.Uint32(buf))
+		part := loadPartition(i.dir, gen)
 
-		i.partitions = append(i.partitions, loadPartition(i.dir, int(gen)))
+		// Load in-memory index
+		if gen == 0 {
+			i.curentPart = part
+		} else {
+			i.partitions = append(i.partitions, part)
+		}
 	}
 }
 
@@ -152,7 +155,7 @@ func (i *Index) dumpInfo() {
 	for p := range i.partitions {
 		binary.Write(buf, binary.LittleEndian, uint32(i.partitions[p].generation))
 	}
-
+	binary.Write(buf, binary.LittleEndian, uint32(i.curentPart.generation))
 	buf.WriteTo(f)
 }
 
@@ -180,46 +183,55 @@ func (i *Index) index(dir string) {
 	i.clearMemory()
 }
 
-func (i *Index) addPartition() *partition {
-	i.numParts++
-	p := newPartition(i.dir, i.numParts) // TODO change to zero
-	i.partitions = append(i.partitions, p)
-	return p
+func (i *Index) addPartition() {
+	if i.curentPart != nil {
+		i.partitions = append(i.partitions, i.curentPart)
+	}
+	i.curentPart = newPartition(i.dir, 0)
 }
 
 func (i *Index) mergeParitions() {
-	partitions := i.partitions
+	// Dump current partition into temp file
+	current := i.curentPart
+	current.dump()
 
-	for len(partitions) != 1 {
-		numParts := len(partitions)
-		numChunks := int(math.Ceil(float64(numParts) / chunkSize))
-		chunks := make([][]*partition, 0, numChunks)
+	// Sort partitions in order of generation
+	sort.Slice(i.partitions, func(p1, p2 int) bool {
+		return i.partitions[p1].generation < i.partitions[p2].generation
+	})
 
-		for c := 0; c < numParts; c += chunkSize {
-			if c+chunkSize >= numParts {
-				chunks = append(chunks, partitions[c:])
-			} else {
-				chunks = append(chunks, partitions[c:c+chunkSize])
-			}
-		}
-
-		partitions = make([]*partition, len(chunks))
-		for c := range chunks {
-			i.numParts++
-			partitions[c] = merge(i.dir, i.numParts, chunks[c])
+	// Anticipate collisions
+	g := 1
+	var parts []*partition
+	for p := 1; p < len(i.partitions); p++ {
+		if i.partitions[p].generation == g {
+			parts = append(parts, i.partitions[p])
+			g++
+		} else {
+			break
 		}
 	}
 
-	i.partitions = make([]*partition, 0)
-	i.numParts = 0
+	if len(parts) == 0 {
+		oldPath := current.getPath()
+		// Set current partition as final
+		current.generation = 1
+		os.Rename(oldPath, current.getPath())
+		current.loadDict()
+	} else {
+		// Remove old partitions from the index
+		i.partitions = i.partitions[g:]
+		// Merge partitions
+		p := merge(i.dir, g, append(parts, current))
+		i.partitions = append(i.partitions, p)
+		p.loadDict()
+	}
 
-	os.Rename(partitions[0].getPath(), i.getPostingsPath())
+	i.addPartition()
 }
 
 func (i *Index) clearMemory() {
-	for _, p := range i.partitions {
-		p.dump()
-	}
+	i.curentPart.dump()
 	i.docs.Dump()
 }
 
@@ -229,8 +241,4 @@ func (i *Index) createDir() {
 	if err != nil {
 		log.Fatal("Could not create index directory")
 	}
-}
-
-func (i *Index) getPostingsPath() string {
-	return fmt.Sprintf("%v/index.postings", i.dir)
 }

@@ -17,8 +17,8 @@ type merger struct {
 	finished  int
 }
 
-func merge(dir string, outID int, partitions []*partition) *partition {
-	m := merger{dir: dir, paritions: partitions, part: newPartition(dir, outID)}
+func merge(dir string, newGeneration int, partitions []*partition) *partition {
+	m := merger{dir: dir, paritions: partitions, part: newPartition(dir, newGeneration)}
 	m.createOutputFile()
 	defer m.output.Close()
 
@@ -99,5 +99,10 @@ func (m *merger) openReaders(partitions []*partition) {
 func (m *merger) deletePartitionFiles() {
 	for i := range m.paritions {
 		os.Remove(m.paritions[i].getPath())
+
+		// Remove old dictionaries of non-temp partitions
+		if m.paritions[i].generation != 0 {
+			os.Remove(m.paritions[i].dict.getPath())
+		}
 	}
 }
