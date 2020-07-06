@@ -203,7 +203,7 @@ func (i *Index) mergeParitions() {
 	// Anticipate collisions
 	g := 1
 	var parts []*partition
-	for p := 1; p < len(i.partitions); p++ {
+	for p := 0; p < len(i.partitions); p++ {
 		if i.partitions[p].generation == g {
 			parts = append(parts, i.partitions[p])
 			g++
@@ -220,7 +220,8 @@ func (i *Index) mergeParitions() {
 		current.loadDict()
 	} else {
 		// Remove old partitions from the index
-		i.partitions = i.partitions[g:]
+		i.partitions = i.partitions[len(parts):]
+		i.curentPart = nil
 		// Merge partitions
 		p := merge(i.dir, g, append(parts, current))
 		i.partitions = append(i.partitions, p)
