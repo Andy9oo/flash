@@ -47,6 +47,7 @@ func Build(indexpath, root string) *Index {
 	i.addPartition()
 	i.index(root)
 	i.dumpInfo()
+	i.ClearMemory()
 
 	return &i
 }
@@ -179,8 +180,6 @@ func (i *Index) index(dir string) {
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	i.clearMemory()
 }
 
 func (i *Index) addPartition() {
@@ -231,7 +230,8 @@ func (i *Index) mergeParitions() {
 	i.addPartition()
 }
 
-func (i *Index) clearMemory() {
+// ClearMemory writes any remaining partitions to disk
+func (i *Index) ClearMemory() {
 	i.curentPart.dump()
 	i.docs.Dump()
 }
