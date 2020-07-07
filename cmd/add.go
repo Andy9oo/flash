@@ -28,7 +28,7 @@ import (
 // addCmd represents the add command
 var addCmd = &cobra.Command{
 	Use:   "add",
-	Short: "Adds the given file or directory to the index",
+	Short: "Add a file or directory to the index",
 	Run: func(cmd *cobra.Command, args []string) {
 		index := index.Load(viper.GetString("indexpath"))
 

@@ -36,8 +36,8 @@ type Info struct {
 	TotalLength int
 }
 
-// Build builds a new index for the given directory
-func Build(indexpath, root string) *Index {
+// NewIndex creates a new index
+func NewIndex(indexpath string) *Index {
 	i := Index{
 		dir:  indexpath,
 		docs: doclist.NewList(indexpath, documentListLimit),
@@ -45,9 +45,6 @@ func Build(indexpath, root string) *Index {
 
 	i.createDir()
 	i.addPartition()
-	i.index(root)
-	i.dumpInfo()
-	i.ClearMemory()
 
 	return &i
 }
@@ -55,8 +52,12 @@ func Build(indexpath, root string) *Index {
 // Load opens the index at the indexpath
 func Load(indexpath string) *Index {
 	i := &Index{dir: indexpath}
-	i.loadInfo()
-	i.docs = doclist.Load(indexpath, documentListLimit)
+	err := i.loadInfo()
+	if err != nil {
+		i = NewIndex(indexpath)
+	} else {
+		i.docs = doclist.Load(indexpath, documentListLimit)
+	}
 	return i
 }
 
@@ -115,12 +116,11 @@ func (i *Index) GetDocInfo(id uint32) (path string, length uint32, ok bool) {
 	return "", 0, false
 }
 
-func (i *Index) loadInfo() {
+func (i *Index) loadInfo() error {
 	path := fmt.Sprintf("%v/index.info", i.dir)
 	f, err := os.Open(path)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
 	reader := bufio.NewReader(f)
@@ -142,6 +142,7 @@ func (i *Index) loadInfo() {
 			i.partitions = append(i.partitions, part)
 		}
 	}
+	return nil
 }
 
 func (i *Index) dumpInfo() {
@@ -232,6 +233,7 @@ func (i *Index) mergeParitions() {
 
 // ClearMemory writes any remaining partitions to disk
 func (i *Index) ClearMemory() {
+	i.dumpInfo()
 	i.curentPart.dump()
 	i.docs.Dump()
 }
