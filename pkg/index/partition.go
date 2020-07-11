@@ -34,7 +34,7 @@ func loadPartition(indexpath string, generation int) *partition {
 	if generation == 0 {
 		p.loadPostings()
 	} else {
-		p.dict = loadDictionary(indexpath, generation, dictionaryLimit)
+		p.dict = loadDictionary(p.getPath(), dictionaryLimit)
 	}
 
 	return p
@@ -113,17 +113,17 @@ func (p *partition) loadPostings() {
 	defer reader.Close()
 
 	for !reader.done {
-		term := reader.currentTerm
-		reader.fetchPostingsLength()
-		buf := reader.fetchPostings()
+		term := reader.currentKey
+		reader.fetchDataLength()
+		buf := reader.fetchData()
 
 		p.postings[term] = postinglist.Decode(buf)
-		reader.fetchNextTerm()
+		reader.nextKey()
 	}
 }
 
 func (p *partition) loadDict() {
-	p.dict = loadDictionary(p.indexpath, p.generation, dictionaryLimit)
+	p.dict = loadDictionary(p.getPath(), dictionaryLimit)
 }
 
 func (p *partition) getPath() string {

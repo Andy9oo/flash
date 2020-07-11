@@ -7,22 +7,21 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 )
 
 type dictionary struct {
-	indexpath  string
-	generation int
-	blockSize  int64
-	entries    map[string]int64
-	keys       []string
+	target    string
+	blockSize int64
+	entries   map[string]int64
+	keys      []string
 }
 
-func loadDictionary(indexpath string, generation int, blockSize int64) *dictionary {
+func loadDictionary(target string, blockSize int64) *dictionary {
 	d := dictionary{
-		indexpath:  indexpath,
-		generation: generation,
-		blockSize:  blockSize,
-		entries:    make(map[string]int64),
+		target:    target,
+		blockSize: blockSize,
+		entries:   make(map[string]int64),
 	}
 
 	_, err := os.Stat(d.getPath())
@@ -43,8 +42,7 @@ func loadDictionary(indexpath string, generation int, blockSize int64) *dictiona
 }
 
 func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
-	postingsFile := fmt.Sprintf("%v/part_%d.postings", d.indexpath, d.generation)
-	indexReader := NewReader(postingsFile)
+	indexReader := NewReader(d.target)
 	defer indexReader.Close()
 
 	if offset, ok := d.entries[term]; ok {
@@ -60,7 +58,7 @@ func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 	start := d.entries[d.keys[pos]]
 	end := d.entries[d.keys[pos+1]]
 
-	if buf, ok := indexReader.findPostings(term, start, end); ok {
+	if buf, ok := indexReader.findEntry(term, start, end); ok {
 		return buf, true
 	}
 
@@ -88,25 +86,24 @@ func (d *dictionary) loadOffsets() {
 }
 
 func (d *dictionary) calculateOffsets() {
-	postingsFile := fmt.Sprintf("%v/part_%d.postings", d.indexpath, d.generation)
-	reader := NewReader(postingsFile)
+	reader := NewReader(d.target)
 
 	var remainingBytes int64
 	var offset int64
 	for {
-		numBytes := int64(len(reader.currentTerm)) + int64(reader.fetchPostingsLength()) + 8 // 8 bytes used for offsets
+		numBytes := int64(len(reader.currentKey)) + int64(reader.fetchDataLength()) + 8 // 8 bytes used for offsets
 		remainingBytes -= numBytes
 		if remainingBytes <= 0 {
-			d.entries[reader.currentTerm] = offset
+			d.entries[reader.currentKey] = offset
 			remainingBytes = d.blockSize
 		}
 
-		reader.skipPostings()
-		reader.fetchNextTerm()
+		reader.skipData()
+		reader.nextKey()
 		offset += numBytes
 
 		if reader.done {
-			d.entries[reader.currentTerm] = offset - numBytes
+			d.entries[reader.currentKey] = offset - numBytes
 			return
 		}
 	}
@@ -131,5 +128,6 @@ func (d *dictionary) dump() {
 }
 
 func (d *dictionary) getPath() string {
-	return fmt.Sprintf("%v/part_%d.dict", d.indexpath, d.generation)
+	parts := strings.Split(d.target, "\\.")
+	return fmt.Sprintf("%v.dict", parts[0])
 }

@@ -11,17 +11,17 @@ import (
 
 // Reader for processing indexes
 type Reader struct {
-	file           *os.File
-	currentTerm    string
-	postingsLength uint32
-	done           bool
+	file       *os.File
+	currentKey string
+	dataLength uint32
+	done       bool
 }
 
 // NewReader creates a new index reader
-func NewReader(path string) *Reader {
-	f, err := os.Open(path)
+func NewReader(target string) *Reader {
+	f, err := os.Open(target)
 	if err != nil {
-		log.Fatalf("Could not open file: %v\n", path)
+		log.Fatalf("Could not open file: %v\n", target)
 	}
 
 	r := &Reader{
@@ -29,17 +29,17 @@ func NewReader(path string) *Reader {
 		done: false,
 	}
 
-	r.fetchNextTerm()
+	r.nextKey()
 	return r
 }
 
-func (r *Reader) fetchNextTerm() (ok bool) {
+func (r *Reader) nextKey() (ok bool) {
 	if r.done {
 		return false
 	}
 
-	tlen := readers.ReadUint32(r.file)
-	buf := make([]byte, tlen)
+	keyLen := readers.ReadUint32(r.file)
+	buf := make([]byte, keyLen)
 	n, err := r.file.Read(buf)
 	if n == 0 || err != nil {
 		r.done = true
@@ -47,35 +47,35 @@ func (r *Reader) fetchNextTerm() (ok bool) {
 		return false
 	}
 
-	r.currentTerm = string(buf)
+	r.currentKey = string(buf)
 	return true
 }
 
-func (r *Reader) fetchPostingsLength() uint32 {
-	r.postingsLength = readers.ReadUint32(r.file)
-	return r.postingsLength
+func (r *Reader) fetchDataLength() uint32 {
+	r.dataLength = readers.ReadUint32(r.file)
+	return r.dataLength
 }
 
-func (r *Reader) fetchPostings() *bytes.Buffer {
-	buf := make([]byte, r.postingsLength)
+func (r *Reader) fetchData() *bytes.Buffer {
+	buf := make([]byte, r.dataLength)
 	r.file.Read(buf)
 	return bytes.NewBuffer(buf)
 }
 
-func (r *Reader) skipPostings() {
-	r.file.Seek(int64(r.postingsLength), os.SEEK_CUR)
+func (r *Reader) skipData() {
+	r.file.Seek(int64(r.dataLength), os.SEEK_CUR)
 }
 
 func (r *Reader) fetchEntry(offset int64) (term string, buf *bytes.Buffer) {
 	r.file.Seek(offset, os.SEEK_SET)
-	r.fetchNextTerm()
-	r.fetchPostingsLength()
-	buf = r.fetchPostings()
+	r.nextKey()
+	r.fetchDataLength()
+	buf = r.fetchData()
 
-	return r.currentTerm, buf
+	return r.currentKey, buf
 }
 
-func (r *Reader) findPostings(term string, start int64, end int64) (buf *bytes.Buffer, ok bool) {
+func (r *Reader) findEntry(key string, start int64, end int64) (buf *bytes.Buffer, ok bool) {
 	r.file.Seek(start, os.SEEK_SET)
 	blockSize := end - start
 
@@ -84,20 +84,20 @@ func (r *Reader) findPostings(term string, start int64, end int64) (buf *bytes.B
 
 	i := int64(0)
 	for i < blockSize {
-		tlen := int64(binary.LittleEndian.Uint32(block[i : i+4]))
+		keyLen := int64(binary.LittleEndian.Uint32(block[i : i+4]))
 		i += 4
 
-		t := string(block[i : i+tlen])
-		i += tlen
+		k := string(block[i : i+keyLen])
+		i += keyLen
 
-		plen := int64(binary.LittleEndian.Uint32(block[i : i+4]))
+		dataLen := int64(binary.LittleEndian.Uint32(block[i : i+4]))
 		i += 4
 
-		if t == term {
-			return bytes.NewBuffer(block[i : i+plen]), true
+		if k == key {
+			return bytes.NewBuffer(block[i : i+dataLen]), true
 		}
 
-		i += plen
+		i += dataLen
 	}
 
 	return nil, false
@@ -110,5 +110,5 @@ func (r *Reader) Close() {
 }
 
 func (r *Reader) compare(s string) int {
-	return strings.Compare(r.currentTerm, s)
+	return strings.Compare(r.currentKey, s)
 }

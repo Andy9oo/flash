@@ -46,7 +46,7 @@ func (m *merger) getNextTerm() (term string, readers []*Reader) {
 		}
 		cmp := m.readers[i].compare(term)
 		if cmp == -1 || term == "" { // If the current term is less than the selected term
-			term = m.readers[i].currentTerm
+			term = m.readers[i].currentKey
 			readers = readers[:0] // Reset slice keeping allocated memory
 			readers = append(readers, m.readers[i])
 		} else if cmp == 0 { // If the current term is equal to the selected term
@@ -59,8 +59,8 @@ func (m *merger) getNextTerm() (term string, readers []*Reader) {
 func (m *merger) mergePostings(readers []*Reader) {
 	plist := postinglist.NewList()
 	for i := 0; i < len(readers); i++ {
-		readers[i].fetchPostingsLength()
-		r := postinglist.NewReader(readers[i].fetchPostings())
+		readers[i].fetchDataLength()
+		r := postinglist.NewReader(readers[i].fetchData())
 
 		for r.Read() {
 			id, _, offsets := r.Data()
@@ -75,7 +75,7 @@ func (m *merger) mergePostings(readers []*Reader) {
 
 func (m *merger) advanceTerms(readers []*Reader) {
 	for i := range readers {
-		if ok := readers[i].fetchNextTerm(); !ok {
+		if ok := readers[i].nextKey(); !ok {
 			m.finished++
 		}
 	}
