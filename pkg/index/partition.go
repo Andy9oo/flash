@@ -49,7 +49,7 @@ func (p *partition) GetPostingReader(term string) (*postinglist.Reader, bool) {
 		return nil, false
 	}
 
-	if buf, ok := p.dict.getPostingBuffer(term); ok {
+	if buf, ok := p.dict.getBuffer(term); ok {
 		return postinglist.NewReader(buf), true
 	}
 	return nil, false

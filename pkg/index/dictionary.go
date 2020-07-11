@@ -41,16 +41,16 @@ func loadDictionary(target string, blockSize int64) *dictionary {
 	return &d
 }
 
-func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
-	indexReader := NewReader(d.target)
-	defer indexReader.Close()
+func (d *dictionary) getBuffer(key string) (*bytes.Buffer, bool) {
+	reader := NewReader(d.target)
+	defer reader.Close()
 
-	if offset, ok := d.entries[term]; ok {
-		_, buf := indexReader.fetchEntry(offset)
+	if offset, ok := d.entries[key]; ok {
+		_, buf := reader.fetchEntry(offset)
 		return buf, true
 	}
 
-	pos := sort.SearchStrings(d.keys, term) - 1
+	pos := sort.SearchStrings(d.keys, key) - 1
 	if pos == -1 || pos == len(d.keys)-1 {
 		return nil, false
 	}
@@ -58,7 +58,7 @@ func (d *dictionary) getPostingBuffer(term string) (*bytes.Buffer, bool) {
 	start := d.entries[d.keys[pos]]
 	end := d.entries[d.keys[pos+1]]
 
-	if buf, ok := indexReader.findEntry(term, start, end); ok {
+	if buf, ok := reader.findEntry(key, start, end); ok {
 		return buf, true
 	}
 
@@ -73,15 +73,15 @@ func (d *dictionary) loadOffsets() {
 	}
 	defer f.Close()
 
-	numTerms := readers.ReadUint32(f)
-	for i := uint32(0); i < numTerms; i++ {
-		tlen := readers.ReadUint32(f)
+	numKeys := readers.ReadUint32(f)
+	for i := uint32(0); i < numKeys; i++ {
+		klen := readers.ReadUint32(f)
 
-		tbuf := make([]byte, tlen)
-		f.Read(tbuf)
+		kbuf := make([]byte, klen)
+		f.Read(kbuf)
 
 		offset := readers.ReadUint64(f)
-		d.entries[string(tbuf)] = int64(offset)
+		d.entries[string(kbuf)] = int64(offset)
 	}
 }
 
