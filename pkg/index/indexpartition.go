@@ -63,6 +63,20 @@ func (ip *indexPartition) clear() {
 	ip.data = nil
 }
 
+func (ip *indexPartition) merge(readers []*Reader) partitionEntry {
+	plist := postinglist.NewList()
+	for i := 0; i < len(readers); i++ {
+		readers[i].fetchDataLength()
+		r := postinglist.NewReader(readers[i].fetchData())
+
+		for r.Read() {
+			id, _, offsets := r.Data()
+			plist.Add(id, offsets...)
+		}
+	}
+	return plist
+}
+
 func (pe *postingEntry) Bytes() *bytes.Buffer {
 	var buf *bytes.Buffer
 	binary.Write(buf, binary.LittleEndian, pe.docID)

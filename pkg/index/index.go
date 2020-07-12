@@ -223,7 +223,7 @@ func (i *Index) mergeParitions() {
 		i.partitions = i.partitions[len(parts):]
 		i.curentPart = nil
 		// Merge partitions
-		p := merge(i.dir, g, append(parts, current))
+		p := merge(i.dir, "postings", g, append(parts, current))
 		i.partitions = append(i.partitions, p)
 		p.loadDict()
 	}

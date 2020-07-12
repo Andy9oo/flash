@@ -13,6 +13,7 @@ type partitionImpl interface {
 	add(key string, val partitionEntry)
 	get(key string) (val partitionEntry, ok bool)
 	decode(*bytes.Buffer) partitionEntry
+	merge([]*Reader) partitionEntry
 	empty() bool
 	keys() []string
 	clear()

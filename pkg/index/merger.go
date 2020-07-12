@@ -3,7 +3,6 @@ package index
 import (
 	"bytes"
 	"encoding/binary"
-	"flash/pkg/index/postinglist"
 	"log"
 	"os"
 )
@@ -17,8 +16,15 @@ type merger struct {
 	finished  int
 }
 
-func merge(dir string, newGeneration int, partitions []*partition) *partition {
-	m := merger{dir: dir, paritions: partitions, part: newPartition(dir, "postings", newGeneration, partitionLimit, newIndexPartition())}
+func merge(dir, extension string, newGeneration int, partitions []*partition) *partition {
+	var impl partitionImpl
+
+	switch partitions[0].impl.(type) {
+	case *indexPartition:
+		impl = newIndexPartition()
+	}
+
+	m := merger{dir: dir, paritions: partitions, part: newPartition(dir, extension, newGeneration, partitionLimit, impl)}
 	m.createOutputFile()
 	defer m.output.Close()
 
@@ -31,7 +37,7 @@ func merge(dir string, newGeneration int, partitions []*partition) *partition {
 		binary.Write(buf, binary.LittleEndian, []byte(term))
 		buf.WriteTo(m.output)
 
-		m.mergePostings(readers)
+		m.mergeData(readers)
 		m.advanceTerms(readers)
 	}
 
@@ -56,19 +62,9 @@ func (m *merger) getNextTerm() (term string, readers []*Reader) {
 	return term, readers
 }
 
-func (m *merger) mergePostings(readers []*Reader) {
-	plist := postinglist.NewList()
-	for i := 0; i < len(readers); i++ {
-		readers[i].fetchDataLength()
-		r := postinglist.NewReader(readers[i].fetchData())
-
-		for r.Read() {
-			id, _, offsets := r.Data()
-			plist.Add(id, offsets...)
-		}
-	}
-
-	buf := plist.Bytes()
+func (m *merger) mergeData(readers []*Reader) {
+	merged := m.part.impl.merge(readers)
+	buf := merged.Bytes()
 	binary.Write(m.output, binary.LittleEndian, uint32(buf.Len()))
 	m.output.Write(buf.Bytes())
 }
