@@ -78,7 +78,7 @@ func (i *Index) Add(path string) {
 				i.mergeParitions()
 			}
 
-			i.curentPart.add(term, i.docs.GetID(), offset)
+			i.curentPart.add(term, &postingEntry{i.docs.GetID(), offset})
 			offset++
 		}
 
@@ -92,8 +92,8 @@ func (i *Index) Add(path string) {
 func (i *Index) GetPostingReaders(term string) []*postinglist.Reader {
 	var readers []*postinglist.Reader
 	for _, p := range append(i.partitions, i.curentPart) {
-		if r, ok := p.GetPostingReader(term); ok {
-			readers = append(readers, r)
+		if buf, ok := p.GetBuffer(term); ok {
+			readers = append(readers, postinglist.NewReader(buf))
 		}
 	}
 	return readers
@@ -133,7 +133,7 @@ func (i *Index) loadInfo() error {
 		}
 
 		gen := int(binary.LittleEndian.Uint32(buf))
-		part := loadPartition(i.dir, gen)
+		part := loadPartition(i.dir, "postings", gen, partitionLimit, newIndexPartition())
 
 		// Load in-memory index
 		if gen == 0 {
@@ -187,7 +187,7 @@ func (i *Index) addPartition() {
 	if i.curentPart != nil {
 		i.partitions = append(i.partitions, i.curentPart)
 	}
-	i.curentPart = newPartition(i.dir, 0)
+	i.curentPart = newPartition(i.dir, "postings", 0, partitionLimit, newIndexPartition())
 }
 
 func (i *Index) mergeParitions() {

@@ -6,19 +6,21 @@ import (
 	"flash/tools/readers"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
 
-type dictionary struct {
+// Dictionary can be used to lookup file offsets for given keys
+type Dictionary struct {
 	target    string
 	blockSize int64
 	entries   map[string]int64
 	keys      []string
 }
 
-func loadDictionary(target string, blockSize int64) *dictionary {
-	d := dictionary{
+func loadDictionary(target string, blockSize int64) *Dictionary {
+	d := Dictionary{
 		target:    target,
 		blockSize: blockSize,
 		entries:   make(map[string]int64),
@@ -41,7 +43,7 @@ func loadDictionary(target string, blockSize int64) *dictionary {
 	return &d
 }
 
-func (d *dictionary) getBuffer(key string) (*bytes.Buffer, bool) {
+func (d *Dictionary) getBuffer(key string) (*bytes.Buffer, bool) {
 	reader := NewReader(d.target)
 	defer reader.Close()
 
@@ -65,7 +67,7 @@ func (d *dictionary) getBuffer(key string) (*bytes.Buffer, bool) {
 	return nil, false
 }
 
-func (d *dictionary) loadOffsets() {
+func (d *Dictionary) loadOffsets() {
 	f, err := os.Open(d.getPath())
 	if err != nil {
 		fmt.Println("Could not open dictionary file")
@@ -85,7 +87,7 @@ func (d *dictionary) loadOffsets() {
 	}
 }
 
-func (d *dictionary) calculateOffsets() {
+func (d *Dictionary) calculateOffsets() {
 	reader := NewReader(d.target)
 
 	var remainingBytes int64
@@ -109,7 +111,7 @@ func (d *dictionary) calculateOffsets() {
 	}
 }
 
-func (d *dictionary) dump() {
+func (d *Dictionary) dump() {
 	f, err := os.Create(d.getPath())
 	if err != nil {
 		fmt.Println(err)
@@ -127,7 +129,7 @@ func (d *dictionary) dump() {
 	buf.WriteTo(f)
 }
 
-func (d *dictionary) getPath() string {
-	parts := strings.Split(d.target, "\\.")
-	return fmt.Sprintf("%v.dict", parts[0])
+func (d *Dictionary) getPath() string {
+	base := strings.TrimSuffix(d.target, filepath.Ext(d.target))
+	return fmt.Sprintf("%v.dict", base)
 }

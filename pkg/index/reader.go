@@ -103,7 +103,7 @@ func (r *Reader) findEntry(key string, start int64, end int64) (buf *bytes.Buffe
 	return nil, false
 }
 
-// Close index reader
+// Close the reader
 func (r *Reader) Close() {
 	r.file.Close()
 	r.done = true
