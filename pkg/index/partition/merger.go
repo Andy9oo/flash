@@ -1,4 +1,4 @@
-package index
+package partition
 
 import (
 	"bytes"
@@ -10,21 +10,14 @@ import (
 type merger struct {
 	dir       string
 	output    *os.File
-	part      *partition
-	paritions []*partition
+	part      *Partition
+	paritions []*Partition
 	readers   []*Reader
 	finished  int
 }
 
-func merge(dir, extension string, newGeneration int, partitions []*partition) *partition {
-	var impl partitionImpl
-
-	switch partitions[0].impl.(type) {
-	case *indexPartition:
-		impl = newIndexPartition()
-	}
-
-	m := merger{dir: dir, paritions: partitions, part: newPartition(dir, extension, newGeneration, partitionLimit, impl)}
+func merge(partitions []*Partition, out *Partition) {
+	m := merger{dir: out.indexpath, paritions: partitions, part: out}
 	m.createOutputFile()
 	defer m.output.Close()
 
@@ -42,7 +35,6 @@ func merge(dir, extension string, newGeneration int, partitions []*partition) *p
 	}
 
 	m.deletePartitionFiles()
-	return m.part
 }
 
 func (m *merger) getNextTerm() (term string, readers []*Reader) {
@@ -63,7 +55,7 @@ func (m *merger) getNextTerm() (term string, readers []*Reader) {
 }
 
 func (m *merger) mergeData(readers []*Reader) {
-	merged := m.part.impl.merge(readers)
+	merged := m.part.impl.Merge(readers)
 	buf := merged.Bytes()
 	binary.Write(m.output, binary.LittleEndian, uint32(buf.Len()))
 	m.output.Write(buf.Bytes())
@@ -71,7 +63,7 @@ func (m *merger) mergeData(readers []*Reader) {
 
 func (m *merger) advanceTerms(readers []*Reader) {
 	for i := range readers {
-		if ok := readers[i].nextKey(); !ok {
+		if ok := readers[i].NextKey(); !ok {
 			m.finished++
 		}
 	}
@@ -86,7 +78,7 @@ func (m *merger) createOutputFile() {
 	m.output = f
 }
 
-func (m *merger) openReaders(partitions []*partition) {
+func (m *merger) openReaders(partitions []*Partition) {
 	for i := range partitions {
 		m.readers = append(m.readers, NewReader(partitions[i].getPath()))
 	}

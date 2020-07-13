@@ -1,4 +1,4 @@
-package index
+package partition
 
 import (
 	"bytes"
@@ -29,11 +29,11 @@ func NewReader(target string) *Reader {
 		done: false,
 	}
 
-	r.nextKey()
+	r.NextKey()
 	return r
 }
 
-func (r *Reader) nextKey() (ok bool) {
+func (r *Reader) NextKey() (ok bool) {
 	if r.done {
 		return false
 	}
@@ -51,26 +51,26 @@ func (r *Reader) nextKey() (ok bool) {
 	return true
 }
 
-func (r *Reader) fetchDataLength() uint32 {
+func (r *Reader) FetchDataLength() uint32 {
 	r.dataLength = readers.ReadUint32(r.file)
 	return r.dataLength
 }
 
-func (r *Reader) fetchData() *bytes.Buffer {
+func (r *Reader) FetchData() *bytes.Buffer {
 	buf := make([]byte, r.dataLength)
 	r.file.Read(buf)
 	return bytes.NewBuffer(buf)
 }
 
-func (r *Reader) skipData() {
+func (r *Reader) SkipData() {
 	r.file.Seek(int64(r.dataLength), os.SEEK_CUR)
 }
 
 func (r *Reader) fetchEntry(offset int64) (term string, buf *bytes.Buffer) {
 	r.file.Seek(offset, os.SEEK_SET)
-	r.nextKey()
-	r.fetchDataLength()
-	buf = r.fetchData()
+	r.NextKey()
+	r.FetchDataLength()
+	buf = r.FetchData()
 
 	return r.currentKey, buf
 }

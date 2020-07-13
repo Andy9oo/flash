@@ -1,4 +1,4 @@
-package index
+package partition
 
 import (
 	"bytes"
@@ -9,32 +9,34 @@ import (
 	"sort"
 )
 
-type partitionImpl interface {
-	add(key string, val partitionEntry)
-	get(key string) (val partitionEntry, ok bool)
-	decode(*bytes.Buffer) partitionEntry
-	merge([]*Reader) partitionEntry
-	empty() bool
-	keys() []string
-	clear()
+type Implementation interface {
+	Add(key string, val Entry)
+	Get(key string) (val Entry, ok bool)
+	Decode(*bytes.Buffer) Entry
+	Merge([]*Reader) Entry
+	Empty() bool
+	Keys() []string
+	Clear()
 }
 
-type partitionEntry interface {
+type Entry interface {
 	Bytes() *bytes.Buffer
 }
 
-type partition struct {
+type Partition struct {
 	indexpath  string
 	extension  string
 	generation int
-	impl       partitionImpl
+	impl       Implementation
 	dict       *Dictionary
 	size       int
 	limit      int
 }
 
-func newPartition(indexpath, extension string, generation, limit int, impl partitionImpl) *partition {
-	p := partition{
+const dictionaryLimit = 1 << 20
+
+func NewPartition(indexpath, extension string, generation, limit int, impl Implementation) *Partition {
+	p := Partition{
 		indexpath:  indexpath,
 		extension:  extension,
 		generation: generation,
@@ -45,8 +47,8 @@ func newPartition(indexpath, extension string, generation, limit int, impl parti
 	return &p
 }
 
-func loadPartition(indexpath, extension string, generation, limit int, impl partitionImpl) *partition {
-	p := newPartition(indexpath, extension, generation, limit, impl)
+func LoadPartition(indexpath, extension string, generation, limit int, impl Implementation) *Partition {
+	p := NewPartition(indexpath, extension, generation, limit, impl)
 
 	if generation == 0 {
 		p.loadData()
@@ -58,9 +60,9 @@ func loadPartition(indexpath, extension string, generation, limit int, impl part
 }
 
 // GetPostingReader returns a posting reader for a term
-func (p *partition) GetBuffer(term string) (*bytes.Buffer, bool) {
+func (p *Partition) GetBuffer(term string) (*bytes.Buffer, bool) {
 	if p.generation == 0 {
-		if val, ok := p.impl.get(term); ok {
+		if val, ok := p.impl.Get(term); ok {
 			return val.Bytes(), true
 		}
 		return nil, false
@@ -73,17 +75,17 @@ func (p *partition) GetBuffer(term string) (*bytes.Buffer, bool) {
 	return nil, false
 }
 
-func (p *partition) add(key string, val partitionEntry) {
-	p.impl.add(key, val)
+func (p *Partition) add(key string, val Entry) {
+	p.impl.Add(key, val)
 	p.size++
 }
 
-func (p *partition) full() bool {
+func (p *Partition) full() bool {
 	return p.size >= p.limit
 }
 
-func (p *partition) dump() {
-	if p.impl.empty() {
+func (p *Partition) dump() {
+	if p.impl.Empty() {
 		return
 	}
 
@@ -94,17 +96,17 @@ func (p *partition) dump() {
 	defer f.Close()
 
 	p.bytes().WriteTo(f)
-	p.impl.clear()
+	p.impl.Clear()
 	p.size = 0
 }
 
-func (p *partition) bytes() *bytes.Buffer {
-	keys := p.impl.keys()
+func (p *Partition) bytes() *bytes.Buffer {
+	keys := p.impl.Keys()
 	sort.Strings(keys)
 
 	buf := new(bytes.Buffer)
 	for _, key := range keys {
-		data, _ := p.impl.get(key)
+		data, _ := p.impl.Get(key)
 		dataBuf := data.Bytes()
 
 		binary.Write(buf, binary.LittleEndian, uint32(len(key)))
@@ -116,24 +118,24 @@ func (p *partition) bytes() *bytes.Buffer {
 	return buf
 }
 
-func (p *partition) loadData() {
+func (p *Partition) loadData() {
 	reader := NewReader(p.getPath())
 	defer reader.Close()
 
 	for !reader.done {
 		key := reader.currentKey
-		reader.fetchDataLength()
-		buf := reader.fetchData()
-		p.add(key, p.impl.decode(buf))
-		reader.nextKey()
+		reader.FetchDataLength()
+		buf := reader.FetchData()
+		p.add(key, p.impl.Decode(buf))
+		reader.NextKey()
 	}
 }
 
-func (p *partition) loadDict() {
+func (p *Partition) loadDict() {
 	p.dict = loadDictionary(p.getPath(), dictionaryLimit)
 }
 
-func (p *partition) getPath() string {
+func (p *Partition) getPath() string {
 	if p.generation == 0 {
 		return fmt.Sprintf("%v/temp.%v", p.indexpath, p.extension)
 	}

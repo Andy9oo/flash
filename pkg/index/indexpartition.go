@@ -3,10 +3,12 @@ package index
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/pkg/index/partition"
 	"flash/pkg/index/postinglist"
 )
 
-type indexPartition struct {
+// Partition implements the partition.Implementation interface
+type Partition struct {
 	data map[string]*postinglist.List
 }
 
@@ -15,59 +17,67 @@ type postingEntry struct {
 	offset uint32
 }
 
-func newIndexPartition() *indexPartition {
-	ip := indexPartition{
+// NewPartition creates a new indexPartition
+func NewPartition() partition.Implementation {
+	p := Partition{
 		data: make(map[string]*postinglist.List),
 	}
 
-	return &ip
+	return &p
 }
 
-func (ip *indexPartition) add(term string, entry partitionEntry) {
+// Add adds a term and an entry to the index
+func (p *Partition) Add(term string, entry partition.Entry) {
 	switch entry.(type) {
 	case *postingEntry:
 		e := entry.(*postingEntry)
-		if _, ok := ip.data[term]; !ok {
-			ip.data[term] = postinglist.NewList()
+		if _, ok := p.data[term]; !ok {
+			p.data[term] = postinglist.NewList()
 		}
-		ip.data[term].Add(e.docID, e.offset)
+		p.data[term].Add(e.docID, e.offset)
 	case *postinglist.List:
-		ip.data[term] = entry.(*postinglist.List)
+		p.data[term] = entry.(*postinglist.List)
 	}
 }
 
-func (ip *indexPartition) get(term string) (partitionEntry, bool) {
-	if val, ok := ip.data[term]; ok {
+// Get returns an entry for a given term from the index
+func (p *Partition) Get(term string) (partition.Entry, bool) {
+	if val, ok := p.data[term]; ok {
 		return val, true
 	}
 	return nil, false
 }
 
-func (ip *indexPartition) decode(buf *bytes.Buffer) partitionEntry {
+// Decode returns a posting list created from the buffer
+func (p *Partition) Decode(buf *bytes.Buffer) partition.Entry {
 	return postinglist.Decode(buf)
 }
 
-func (ip *indexPartition) empty() bool {
-	return len(ip.data) == 0
+// Empty returns true if the index is empty
+func (p *Partition) Empty() bool {
+	return len(p.data) == 0
 }
 
-func (ip *indexPartition) keys() []string {
-	keys := make([]string, 0, len(ip.data))
-	for k := range ip.data {
+// Keys returns the set of keys added to the index
+func (p *Partition) Keys() []string {
+	keys := make([]string, 0, len(p.data))
+	for k := range p.data {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-func (ip *indexPartition) clear() {
-	ip.data = nil
+// Clear removes the data from the partition
+func (p *Partition) Clear() {
+	p.data = nil
 }
 
-func (ip *indexPartition) merge(readers []*Reader) partitionEntry {
+// Merge merges the posting lists given by the set of readers
+func (p *Partition) Merge(readers []*partition.Reader) partition.Entry {
 	plist := postinglist.NewList()
 	for i := 0; i < len(readers); i++ {
-		readers[i].fetchDataLength()
-		r := postinglist.NewReader(readers[i].fetchData())
+		readers[i].FetchDataLength()
+		r := postinglist.NewReader(readers[i].FetchData())
 
 		for r.Read() {
 			id, _, offsets := r.Data()

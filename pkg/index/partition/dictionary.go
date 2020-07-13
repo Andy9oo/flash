@@ -1,4 +1,4 @@
-package index
+package partition
 
 import (
 	"bytes"
@@ -93,15 +93,15 @@ func (d *Dictionary) calculateOffsets() {
 	var remainingBytes int64
 	var offset int64
 	for {
-		numBytes := int64(len(reader.currentKey)) + int64(reader.fetchDataLength()) + 8 // 8 bytes used for offsets
+		numBytes := int64(len(reader.currentKey)) + int64(reader.FetchDataLength()) + 8 // 8 bytes used for offsets
 		remainingBytes -= numBytes
 		if remainingBytes <= 0 {
 			d.entries[reader.currentKey] = offset
 			remainingBytes = d.blockSize
 		}
 
-		reader.skipData()
-		reader.nextKey()
+		reader.SkipData()
+		reader.NextKey()
 		offset += numBytes
 
 		if reader.done {
