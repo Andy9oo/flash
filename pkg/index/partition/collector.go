@@ -11,18 +11,16 @@ import (
 
 const partitionLimit = 1 << 18
 
+// Collector is used to abstract partitioning, automatically writing and merging partitions where needed
 type Collector struct {
 	dir               string
 	extension         string
-	memory            *Partition
-	disk              []*Partition
+	memory            *partition
+	disk              []*partition
 	newImplementation func() Implementation
 }
 
-func Test(im Implementation) {
-	fmt.Println(im)
-}
-
+// NewCollector creates a new collector
 func NewCollector(dir, extension string, newImplementation func() Implementation) *Collector {
 	c := Collector{
 		dir:               dir,
@@ -33,10 +31,12 @@ func NewCollector(dir, extension string, newImplementation func() Implementation
 	return &c
 }
 
+// Load will load the partitions into memory
 func (c *Collector) Load() error {
 	return c.loadInfo()
 }
 
+// Add insets a new key value pair into the index
 func (c *Collector) Add(key string, val Entry) {
 	if c.memory.full() {
 		c.mergeParitions()
@@ -44,10 +44,11 @@ func (c *Collector) Add(key string, val Entry) {
 	c.memory.add(key, val)
 }
 
+// GetBuffers returns all of the buffers which use the given key
 func (c *Collector) GetBuffers(key string) []*bytes.Buffer {
 	var buffers []*bytes.Buffer
 	for _, p := range append(c.disk, c.memory) {
-		if buf, ok := p.GetBuffer(key); ok {
+		if buf, ok := p.getBuffer(key); ok {
 			buffers = append(buffers, buf)
 		}
 	}
@@ -58,7 +59,7 @@ func (c *Collector) addPartition() {
 	if c.memory != nil {
 		c.disk = append(c.disk, c.memory)
 	}
-	c.memory = NewPartition(c.dir, c.extension, 0, partitionLimit, c.newImplementation())
+	c.memory = newPartition(c.dir, c.extension, 0, partitionLimit, c.newImplementation())
 }
 
 func (c *Collector) mergeParitions() {
@@ -73,7 +74,7 @@ func (c *Collector) mergeParitions() {
 
 	// Anticipate collisions
 	g := 1
-	var parts []*Partition
+	var parts []*partition
 	for p := 0; p < len(c.disk); p++ {
 		if c.disk[p].generation == g {
 			parts = append(parts, c.disk[p])
@@ -94,7 +95,7 @@ func (c *Collector) mergeParitions() {
 		c.disk = c.disk[len(parts):]
 		c.memory = nil
 		// Merge partitions
-		p := NewPartition(c.dir, c.extension, g, partitionLimit, c.newImplementation())
+		p := newPartition(c.dir, c.extension, g, partitionLimit, c.newImplementation())
 		merge(append(parts, mem), p)
 		c.disk = append(c.disk, p)
 		p.loadDict()
@@ -136,7 +137,7 @@ func (c *Collector) loadInfo() error {
 		}
 
 		gen := int(binary.LittleEndian.Uint32(buf))
-		part := LoadPartition(c.dir, c.extension, gen, partitionLimit, c.newImplementation())
+		part := loadPartition(c.dir, c.extension, gen, partitionLimit, c.newImplementation())
 
 		// Load in-memory index
 		if gen == 0 {
@@ -148,6 +149,7 @@ func (c *Collector) loadInfo() error {
 	return nil
 }
 
+// ClearMemory writes any remaining info to disk
 func (c *Collector) ClearMemory() {
 	c.dumpInfo()
 	c.memory.dump()

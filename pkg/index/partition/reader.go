@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Reader for processing indexes
+// Reader for processing partitions
 type Reader struct {
 	file       *os.File
 	currentKey string
@@ -17,7 +17,7 @@ type Reader struct {
 	done       bool
 }
 
-// NewReader creates a new index reader
+// NewReader creates a new partition reader
 func NewReader(target string) *Reader {
 	f, err := os.Open(target)
 	if err != nil {
@@ -33,6 +33,7 @@ func NewReader(target string) *Reader {
 	return r
 }
 
+// NextKey reads the next key from the partition, returns false if there isn't another key
 func (r *Reader) NextKey() (ok bool) {
 	if r.done {
 		return false
@@ -51,17 +52,20 @@ func (r *Reader) NextKey() (ok bool) {
 	return true
 }
 
+// FetchDataLength reads the length of the data section for the current key
 func (r *Reader) FetchDataLength() uint32 {
 	r.dataLength = readers.ReadUint32(r.file)
 	return r.dataLength
 }
 
+// FetchData reads in the data portion for the current key
 func (r *Reader) FetchData() *bytes.Buffer {
 	buf := make([]byte, r.dataLength)
 	r.file.Read(buf)
 	return bytes.NewBuffer(buf)
 }
 
+// SkipData will seek the file past the data section without reading it
 func (r *Reader) SkipData() {
 	r.file.Seek(int64(r.dataLength), os.SEEK_CUR)
 }
