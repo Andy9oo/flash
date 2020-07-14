@@ -6,7 +6,7 @@ import (
 
 type termReader struct {
 	preaders        []*postinglist.Reader
-	nextDoc         uint32
+	nextDoc         uint64
 	frequency       uint32
 	numDocs         uint32
 	finishedReaders []bool

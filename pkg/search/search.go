@@ -13,12 +13,12 @@ import (
 type Engine struct {
 	index    *index.Index
 	info     *index.Info
-	seenDocs map[uint32]uint32
+	seenDocs map[uint64]uint32
 }
 
 // Result type
 type Result struct {
-	ID    uint32
+	ID    uint64
 	Score float64
 }
 
@@ -32,7 +32,7 @@ func NewEngine(index *index.Index) *Engine {
 	e := Engine{
 		index:    index,
 		info:     index.GetInfo(),
-		seenDocs: make(map[uint32]uint32),
+		seenDocs: make(map[uint64]uint32),
 	}
 
 	return &e
@@ -130,7 +130,7 @@ func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[strin
 }
 
 // Score returns the score for a doc using the BM25 ranking function
-func (e *Engine) Score(doc, numDocs, frequency uint32, k float64, b float64) float64 {
+func (e *Engine) Score(doc uint64, numDocs, frequency uint32, k float64, b float64) float64 {
 	var docLength uint32
 	lavg := float64(e.info.TotalLength) / float64(e.info.NumDocs)
 	N := float64(e.info.NumDocs)
@@ -152,7 +152,7 @@ func (e *Engine) Score(doc, numDocs, frequency uint32, k float64, b float64) flo
 	return math.Log(N/Nt) * TF
 }
 
-func (e *Engine) calculateRemovedTermsScore(terms []term, treaders map[string]*termReader, doc uint32) float64 {
+func (e *Engine) calculateRemovedTermsScore(terms []term, treaders map[string]*termReader, doc uint64) float64 {
 	score := 0.0
 	for t := range terms {
 		reader := treaders[terms[t].value]

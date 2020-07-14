@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-const partitionLimit = 1 << 10
+const partitionLimit = 1 << 20
 
 // Collector is used to abstract partitioning, automatically writing and merging partitions where needed
 type Collector struct {

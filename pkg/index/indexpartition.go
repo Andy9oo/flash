@@ -13,7 +13,7 @@ type Partition struct {
 }
 
 type postingEntry struct {
-	docID  uint32
+	docID  uint64
 	offset uint32
 }
 

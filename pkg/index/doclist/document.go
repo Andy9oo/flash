@@ -7,13 +7,13 @@ import (
 
 // Document datastructure
 type Document struct {
-	id     uint32
+	id     uint64
 	path   string
 	length uint32
 }
 
 // ID returns the documents id
-func (d *Document) ID() uint32 {
+func (d *Document) ID() uint64 {
 	return d.id
 }
 

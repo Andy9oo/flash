@@ -10,7 +10,7 @@ type termHeap []term
 type term struct {
 	value     string
 	frequency uint32
-	nextDoc   uint32
+	nextDoc   uint64
 	maxScore  float64
 	ok        bool
 }

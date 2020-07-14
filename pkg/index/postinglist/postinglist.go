@@ -9,14 +9,14 @@ import (
 
 // List type
 type List struct {
-	postings map[uint32]*Posting
-	docs     []uint32
+	postings map[uint64]*Posting
+	docs     []uint64
 	sorted   bool
 }
 
 // Posting type
 type Posting struct {
-	docID     uint32
+	docID     uint64
 	frequency uint32
 	offsets   []uint32
 }
@@ -24,7 +24,7 @@ type Posting struct {
 // NewList creates a new posting list
 func NewList() *List {
 	l := List{
-		postings: make(map[uint32]*Posting),
+		postings: make(map[uint64]*Posting),
 	}
 	return &l
 }
@@ -34,9 +34,9 @@ func Decode(buf *bytes.Buffer) *List {
 	l := NewList()
 
 	numDocs := readers.ReadUint32(buf)
-	l.docs = make([]uint32, 0, numDocs)
+	l.docs = make([]uint64, 0, numDocs)
 	for buf.Len() > 0 {
-		id := readers.ReadUint32(buf)
+		id := readers.ReadUint64(buf)
 		frequency := readers.ReadUint32(buf)
 		for i := uint32(0); i < frequency; i++ {
 			pos := readers.ReadUint32(buf)
@@ -47,7 +47,7 @@ func Decode(buf *bytes.Buffer) *List {
 }
 
 // Add adds the offsets to the entry for the given doc
-func (l *List) Add(docID uint32, offsets ...uint32) {
+func (l *List) Add(docID uint64, offsets ...uint32) {
 	var p *Posting
 	var ok bool
 
@@ -67,7 +67,7 @@ func (p *Posting) addOffsets(offsets []uint32) {
 }
 
 // GetDocs returns a list of documents in the postinglist
-func (l *List) GetDocs() []uint32 {
+func (l *List) GetDocs() []uint64 {
 	if !l.sorted {
 		sort.Slice(l.docs, func(i, j int) bool { return l.docs[i] < l.docs[j] })
 		l.sorted = true

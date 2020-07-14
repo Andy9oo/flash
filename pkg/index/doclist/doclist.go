@@ -40,9 +40,9 @@ func Load(indexpath string) *DocList {
 }
 
 // Add adds the given file to the doclist
-func (d *DocList) Add(file string, length uint32) {
+func (d *DocList) Add(id uint64, file string, length uint32) {
 	doc := &Document{
-		id:     d.totalDocs,
+		id:     id,
 		path:   file,
 		length: length,
 	}
@@ -52,7 +52,7 @@ func (d *DocList) Add(file string, length uint32) {
 }
 
 // Fetch gets the document with the given id
-func (d *DocList) Fetch(id uint32) (doc *Document, ok bool) {
+func (d *DocList) Fetch(id uint64) (doc *Document, ok bool) {
 	entries := d.collector.GetEntries(fmt.Sprint(id))
 	if len(entries) == 1 {
 		if d, ok := entries[0].(*Document); ok {
@@ -60,11 +60,6 @@ func (d *DocList) Fetch(id uint32) (doc *Document, ok bool) {
 		}
 	}
 	return nil, false
-}
-
-// GetID returns a unique id in the doclist
-func (d *DocList) GetID() uint32 {
-	return d.totalDocs
 }
 
 // TotalLength returns the total length of all the documents added to the doclist

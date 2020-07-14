@@ -38,7 +38,7 @@ func (p *Partition) Get(id string) (val partition.Entry, ok bool) {
 
 // Decode takes a byte buffer and decodes it to a document
 func (p *Partition) Decode(buf *bytes.Buffer) partition.Entry {
-	id := readers.ReadUint32(buf)
+	id := readers.ReadUint64(buf)
 	length := readers.ReadUint32(buf)
 	plen := readers.ReadUint32(buf)
 	pbuf := make([]byte, plen)

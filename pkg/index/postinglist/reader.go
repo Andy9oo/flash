@@ -9,7 +9,7 @@ import (
 type Reader struct {
 	numDocs   uint32
 	buffer    *bytes.Buffer
-	id        uint32
+	id        uint64
 	frequency uint32
 	offsets   []uint32
 }
@@ -28,7 +28,7 @@ func (r *Reader) Read() (ok bool) {
 		return false
 	}
 
-	r.id = readers.ReadUint32(r.buffer)
+	r.id = readers.ReadUint64(r.buffer)
 	r.frequency = readers.ReadUint32(r.buffer)
 
 	r.offsets = make([]uint32, r.frequency)
@@ -40,7 +40,7 @@ func (r *Reader) Read() (ok bool) {
 }
 
 // Data will return the data which has been read
-func (r *Reader) Data() (id, frequency uint32, offsets []uint32) {
+func (r *Reader) Data() (id uint64, frequency uint32, offsets []uint32) {
 	return r.id, r.frequency, r.offsets
 }
 
