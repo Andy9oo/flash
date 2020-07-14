@@ -11,12 +11,6 @@ import (
 	"path/filepath"
 )
 
-const (
-	documentListLimit = 1 << 20
-	blockSize         = 1 << 10
-	chunkSize         = 1 << 10
-)
-
 // Index datastructure
 type Index struct {
 	dir       string
@@ -34,7 +28,7 @@ type Info struct {
 func NewIndex(indexpath string) *Index {
 	i := Index{
 		dir:       indexpath,
-		docs:      doclist.NewList(indexpath, documentListLimit),
+		docs:      doclist.NewList(indexpath),
 		collector: partition.NewCollector(indexpath, "postings", NewPartition),
 	}
 	i.createDir()
@@ -52,7 +46,7 @@ func Load(indexpath string) *Index {
 	if err != nil {
 		i = NewIndex(indexpath)
 	} else {
-		i.docs = doclist.Load(indexpath, documentListLimit)
+		i.docs = doclist.Load(indexpath)
 	}
 	return i
 }
@@ -130,7 +124,7 @@ func (i *Index) index(dir string) {
 // ClearMemory writes any remaining partitions to disk
 func (i *Index) ClearMemory() {
 	i.collector.ClearMemory()
-	i.docs.Dump()
+	i.docs.ClearMemory()
 }
 
 func (i *Index) createDir() {

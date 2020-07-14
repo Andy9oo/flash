@@ -88,7 +88,7 @@ func (p *Partition) Merge(readers []*partition.Reader) partition.Entry {
 }
 
 func (pe *postingEntry) Bytes() *bytes.Buffer {
-	var buf *bytes.Buffer
+	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, pe.docID)
 	binary.Write(buf, binary.LittleEndian, pe.offset)
 	return buf

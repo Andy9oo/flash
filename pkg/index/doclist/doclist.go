@@ -3,124 +3,63 @@ package doclist
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/pkg/index/partition"
 	"flash/tools/readers"
 	"fmt"
-	"io"
-	"log"
 	"os"
-	"sort"
 )
 
 // DocList type
 type DocList struct {
-	path        string
-	docs        []Document
-	docLimit    uint32
+	dir         string
+	collector   *partition.Collector
 	totalDocs   uint32
 	totalLength int
-	infoPath    string
-	offsets     map[uint32]int64
-	keys        []int
 }
 
 // NewList creates a new doclist
-func NewList(indexpath string, limit uint32) *DocList {
-	path := fmt.Sprintf("%v/index.doclist", indexpath)
-	infoPath := fmt.Sprintf("%v/doclist.info", indexpath)
-
+func NewList(indexpath string) *DocList {
 	l := DocList{
-		path:     path,
-		infoPath: infoPath,
-		offsets:  make(map[uint32]int64),
-		docLimit: limit,
+		dir:       indexpath,
+		collector: partition.NewCollector(indexpath, "doclist", NewPartition),
 	}
 
 	return &l
 }
 
 // Load loads a doclist for the given index
-func Load(indexpath string, limit uint32) *DocList {
-	l := NewList(indexpath, limit)
-	l.loadInfo()
+func Load(indexpath string) *DocList {
+	l := NewList(indexpath)
+
+	err := l.collector.Load()
+	if err == nil {
+		l.loadStats()
+	}
+
 	return l
 }
 
 // Add adds the given file to the doclist
 func (d *DocList) Add(file string, length uint32) {
-	doc := Document{
+	doc := &Document{
 		id:     d.totalDocs,
 		path:   file,
 		length: length,
 	}
-
-	d.docs = append(d.docs, doc)
-	if uint32(len(d.docs)) >= d.docLimit {
-		d.Dump()
-	}
-
+	d.collector.Add(fmt.Sprint(doc.id), doc)
 	d.totalLength += int(length)
 	d.totalDocs++
 }
 
 // Fetch gets the document with the given id
 func (d *DocList) Fetch(id uint32) (doc *Document, ok bool) {
-	f, err := os.Open(d.path)
-	if err != nil {
-		return nil, false
-	}
-	defer f.Close()
-
-	if offset, ok := d.offsets[id]; ok {
-		f.Seek(offset, os.SEEK_SET)
-		doc := d.readDoc(f)
-		return doc, true
-	}
-
-	pos := sort.SearchInts(d.keys, int(id)) - 1
-	if pos == len(d.keys)-1 {
-		return nil, false
-	}
-
-	start := d.offsets[uint32(d.keys[pos])]
-	end := d.offsets[uint32(d.keys[pos+1])]
-
-	return d.findDoc(f, id, start, end)
-}
-
-// Dump writes the current documents in the doclist to file
-func (d *DocList) Dump() {
-	if len(d.docs) == 0 {
-		return
-	}
-
-	f, err := os.OpenFile(d.path, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatal("Could not open document list file")
-	}
-	defer f.Close()
-
-	// Add the offset for the first doc in the block
-	offset, _ := f.Seek(0, os.SEEK_END)
-	if offset == 0 {
-		d.offsets[d.docs[0].id] = offset
-	}
-
-	buf := new(bytes.Buffer)
-	for i, doc := range d.docs {
-		if i == len(d.docs)-1 {
-			d.offsets[d.docs[i].id] = offset + int64(buf.Len())
+	entries := d.collector.GetEntries(fmt.Sprint(id))
+	if len(entries) == 1 {
+		if d, ok := entries[0].(*Document); ok {
+			return d, true
 		}
-		binary.Write(buf, binary.LittleEndian, doc.id)
-		binary.Write(buf, binary.LittleEndian, doc.length)
-		binary.Write(buf, binary.LittleEndian, uint32(len(doc.path)))
-		binary.Write(buf, binary.LittleEndian, []byte(doc.path))
 	}
-	buf.WriteTo(f)
-
-	d.docs = d.docs[:0]
-
-	d.sortKeys()
-	d.dumpInfo()
+	return nil, false
 }
 
 // GetID returns a unique id in the doclist
@@ -138,31 +77,14 @@ func (d *DocList) NumDocs() uint32 {
 	return d.totalDocs
 }
 
-func (d *DocList) loadInfo() {
-	f, err := os.Open(d.infoPath)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer f.Close()
-
-	// Load info
-	d.totalDocs = readers.ReadUint32(f)
-	d.totalLength = int(readers.ReadUint32(f))
-	numOffsets := readers.ReadUint32(f)
-
-	// Load offsets
-	for i := uint32(0); i < numOffsets; i++ {
-		id := readers.ReadUint32(f)
-		offset := readers.ReadUint64(f)
-		d.offsets[id] = int64(offset)
-		d.keys = append(d.keys, int(id))
-	}
-	d.sortKeys()
+// ClearMemory writes any remaining partitions to disk
+func (d *DocList) ClearMemory() {
+	d.collector.ClearMemory()
+	d.dumpStats()
 }
 
-func (d *DocList) dumpInfo() {
-	f, err := os.Create(d.infoPath)
+func (d *DocList) dumpStats() {
+	f, err := os.Create(fmt.Sprintf("%v/doclist.stats", d.dir))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -172,48 +94,17 @@ func (d *DocList) dumpInfo() {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, d.totalDocs)
 	binary.Write(buf, binary.LittleEndian, uint32(d.totalLength))
-	binary.Write(buf, binary.LittleEndian, uint32(len(d.offsets)))
-	for id, offset := range d.offsets {
-		binary.Write(buf, binary.LittleEndian, id)
-		binary.Write(buf, binary.LittleEndian, uint64(offset))
-	}
-
 	buf.WriteTo(f)
 }
 
-func (d *DocList) findDoc(f *os.File, id uint32, start, end int64) (doc *Document, ok bool) {
-	f.Seek(start, os.SEEK_SET)
-
-	blockSize := end - start
-	block := make([]byte, blockSize)
-	f.Read(block)
-
-	buf := bytes.NewBuffer(block)
-	for buf.Len() > 0 {
-		doc := d.readDoc(buf)
-		if doc.id == id {
-			return doc, true
-		}
+func (d *DocList) loadStats() {
+	f, err := os.Open(fmt.Sprintf("%v/doclist.stats", d.dir))
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
+	defer f.Close()
 
-	return nil, false
-}
-
-func (d *DocList) readDoc(reader io.Reader) *Document {
-	id := readers.ReadUint32(reader)
-	len := readers.ReadUint32(reader)
-	plen := readers.ReadUint32(reader)
-
-	pbuf := make([]byte, plen)
-	reader.Read(pbuf)
-
-	return &Document{
-		id:     id,
-		path:   string(pbuf),
-		length: len,
-	}
-}
-
-func (d *DocList) sortKeys() {
-	sort.Slice(d.keys, func(i, j int) bool { return d.keys[i] < d.keys[j] })
+	d.totalDocs = readers.ReadUint32(f)
+	d.totalLength = int(readers.ReadUint32(f))
 }

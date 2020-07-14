@@ -61,18 +61,25 @@ func loadPartition(indexpath, extension string, generation, limit int, impl Impl
 	return p
 }
 
-func (p *partition) getBuffer(term string) (*bytes.Buffer, bool) {
+func (p *partition) getBuffer(key string) (*bytes.Buffer, bool) {
 	if p.generation == 0 {
-		if val, ok := p.impl.Get(term); ok {
+		if val, ok := p.impl.Get(key); ok {
 			return val.Bytes(), true
 		}
 		return nil, false
 	}
 
-	if buf, ok := p.dict.getBuffer(term); ok {
+	if buf, ok := p.dict.getBuffer(key); ok {
 		return buf, true
 	}
 
+	return nil, false
+}
+
+func (p *partition) getEntry(key string) (Entry, bool) {
+	if buf, ok := p.getBuffer(key); ok {
+		return p.impl.Decode(buf), true
+	}
 	return nil, false
 }
 

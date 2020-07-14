@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-const partitionLimit = 1 << 18
+const partitionLimit = 1 << 10
 
 // Collector is used to abstract partitioning, automatically writing and merging partitions where needed
 type Collector struct {
@@ -53,6 +53,17 @@ func (c *Collector) GetBuffers(key string) []*bytes.Buffer {
 		}
 	}
 	return buffers
+}
+
+// GetEntries returns all entries which match the given key
+func (c *Collector) GetEntries(key string) []Entry {
+	var entries []Entry
+	for _, p := range append(c.disk, c.memory) {
+		if e, ok := p.getEntry(key); ok {
+			entries = append(entries, e)
+		}
+	}
+	return entries
 }
 
 func (c *Collector) addPartition() {

@@ -6,9 +6,7 @@ import (
 	"flash/tools/readers"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 )
 
 // Dictionary can be used to lookup file offsets for given keys
@@ -130,6 +128,5 @@ func (d *Dictionary) dump() {
 }
 
 func (d *Dictionary) getPath() string {
-	base := strings.TrimSuffix(d.target, filepath.Ext(d.target))
-	return fmt.Sprintf("%v.dict", base)
+	return fmt.Sprintf("%v.dict", d.target)
 }
