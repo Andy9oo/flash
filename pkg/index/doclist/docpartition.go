@@ -53,6 +53,8 @@ func (p *Partition) Decode(buf *bytes.Buffer) partition.Entry {
 	return &doc
 }
 
+// Merge will merge the partition readers, if there is more than one, this means that
+// there was a collision in the doclist
 func (p *Partition) Merge(readers []*partition.Reader) partition.Entry {
 	if len(readers) != 1 {
 		log.Fatal("Collision occured in doclist")
@@ -66,6 +68,7 @@ func (p *Partition) Empty() bool {
 	return len(p.data) == 0
 }
 
+// Keys returns the list of doc ids
 func (p *Partition) Keys() []string {
 	keys := make([]string, 0, len(p.data))
 	for k := range p.data {
@@ -74,6 +77,7 @@ func (p *Partition) Keys() []string {
 	return keys
 }
 
+// Clear clears the partition
 func (p *Partition) Clear() {
 	p.data = nil
 }
