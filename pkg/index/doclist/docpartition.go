@@ -1,21 +1,28 @@
 package doclist
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/binary"
 	"flash/pkg/index/partition"
 	"flash/tools/readers"
+	"fmt"
 	"log"
+	"os"
+	"strconv"
 )
 
 // Partition implements the partition.Implementation interface for doclist
 type Partition struct {
-	data map[string]*Document
+	data        map[string]*Document
+	invalidDocs map[uint64]bool
 }
 
 // NewPartition returns a new partition
 func NewPartition() partition.Implementation {
 	p := Partition{
-		data: make(map[string]*Document),
+		data:        make(map[string]*Document),
+		invalidDocs: make(map[uint64]bool),
 	}
 
 	return &p
@@ -28,6 +35,23 @@ func (p *Partition) Add(id string, val partition.Entry) {
 	}
 }
 
+// Delete removes a doc from the doclist
+func (p *Partition) Delete(id string) {
+	docid, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	// Invalidate the doc if the partition is on disk
+	if p.Empty() {
+		p.invalidDocs[docid] = true
+		return
+	}
+
+	// If partition is in memory, remove the doc
+	delete(p.data, id)
+}
+
 // Get returns the document with the given id
 func (p *Partition) Get(id string) (val partition.Entry, ok bool) {
 	if val, ok := p.data[id]; ok {
@@ -37,8 +61,13 @@ func (p *Partition) Get(id string) (val partition.Entry, ok bool) {
 }
 
 // Decode takes a byte buffer and decodes it to a document
-func (p *Partition) Decode(buf *bytes.Buffer) partition.Entry {
+func (p *Partition) Decode(buf *bytes.Buffer) (partition.Entry, bool) {
 	id := readers.ReadUint64(buf)
+
+	if _, ok := p.invalidDocs[id]; ok {
+		return nil, false
+	}
+
 	length := readers.ReadUint32(buf)
 	plen := readers.ReadUint32(buf)
 	pbuf := make([]byte, plen)
@@ -50,7 +79,7 @@ func (p *Partition) Decode(buf *bytes.Buffer) partition.Entry {
 		length: length,
 	}
 
-	return &doc
+	return &doc, true
 }
 
 // Merge will merge the partition readers, if there is more than one, this means that
@@ -60,7 +89,8 @@ func (p *Partition) Merge(readers []*partition.Reader) partition.Entry {
 		log.Fatal("Collision occured in doclist")
 	}
 	readers[0].FetchDataLength()
-	return p.Decode(readers[0].FetchData())
+	doc, _ := p.Decode(readers[0].FetchData())
+	return doc
 }
 
 // Empty returns true if the partition is empty
@@ -80,4 +110,30 @@ func (p *Partition) Keys() []string {
 // Clear clears the partition
 func (p *Partition) Clear() {
 	p.data = nil
+}
+
+// LoadInfo loads in information about the partition into memory
+func (p *Partition) LoadInfo(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	r := bufio.NewReader(f)
+	num := readers.ReadUint32(r)
+
+	for i := uint32(0); i < num; i++ {
+		key := readers.ReadUint64(r)
+		p.invalidDocs[key] = true
+	}
+}
+
+// GetInfo returns a buffer containing info that must be saved about the partition
+func (p *Partition) GetInfo() *bytes.Buffer {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, uint32(len(p.invalidDocs)))
+	for key := range p.invalidDocs {
+		binary.Write(buf, binary.LittleEndian, key)
+	}
+	return buf
 }

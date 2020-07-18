@@ -1,6 +1,7 @@
 package doclist
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"flash/pkg/index/partition"
@@ -49,6 +50,11 @@ func (d *DocList) Add(id uint64, file string, length uint32) {
 	d.collector.Add(fmt.Sprint(doc.id), doc)
 	d.totalLength += int(length)
 	d.totalDocs++
+}
+
+// Delete removes a document from the doclist
+func (d *DocList) Delete(id string) {
+	d.collector.Delete(id)
 }
 
 // Fetch gets the document with the given id
@@ -100,6 +106,7 @@ func (d *DocList) loadStats() {
 	}
 	defer f.Close()
 
-	d.totalDocs = readers.ReadUint32(f)
-	d.totalLength = int(readers.ReadUint32(f))
+	r := bufio.NewReader(f)
+	d.totalDocs = readers.ReadUint32(r)
+	d.totalLength = int(readers.ReadUint32(r))
 }

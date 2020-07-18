@@ -12,11 +12,14 @@ import (
 // Implementation represents a partition implementation
 type Implementation interface {
 	Add(key string, val Entry)
+	Delete(key string)
 	Get(key string) (val Entry, ok bool)
-	Decode(*bytes.Buffer) Entry
+	Decode(*bytes.Buffer) (val Entry, ok bool)
 	Merge([]*Reader) Entry
 	Empty() bool
 	Keys() []string
+	LoadInfo(path string)
+	GetInfo() *bytes.Buffer
 	Clear()
 }
 
@@ -51,6 +54,7 @@ func newPartition(indexpath, extension string, generation, limit int, impl Imple
 
 func loadPartition(indexpath, extension string, generation, limit int, impl Implementation) *partition {
 	p := newPartition(indexpath, extension, generation, limit, impl)
+	p.loadInfo()
 
 	if generation == 0 {
 		p.loadData()
@@ -78,7 +82,7 @@ func (p *partition) getBuffer(key string) (*bytes.Buffer, bool) {
 
 func (p *partition) getEntry(key string) (Entry, bool) {
 	if buf, ok := p.getBuffer(key); ok {
-		return p.impl.Decode(buf), true
+		return p.impl.Decode(buf)
 	}
 	return nil, false
 }
@@ -88,15 +92,18 @@ func (p *partition) add(key string, val Entry) {
 	p.size++
 }
 
+func (p *partition) delete(key string) {
+	p.impl.Delete(key)
+	if p.size > 0 {
+		p.size--
+	}
+}
+
 func (p *partition) full() bool {
 	return p.size >= p.limit
 }
 
 func (p *partition) dump() {
-	if p.impl.Empty() {
-		return
-	}
-
 	f, err := os.Create(p.getPath())
 	if err != nil {
 		log.Fatal("Could not create index partition")
@@ -134,13 +141,33 @@ func (p *partition) loadData() {
 		key := reader.currentKey
 		reader.FetchDataLength()
 		buf := reader.FetchData()
-		p.add(key, p.impl.Decode(buf))
+		if val, ok := p.impl.Decode(buf); ok {
+			p.add(key, val)
+		}
 		reader.NextKey()
 	}
 }
 
 func (p *partition) loadDict() {
 	p.dict = loadDictionary(p.getPath(), dictionaryLimit)
+}
+
+func (p *partition) loadInfo() {
+	path := fmt.Sprintf("%v.info", p.getPath())
+	p.impl.LoadInfo(path)
+}
+
+func (p *partition) dumpInfo() {
+	path := fmt.Sprintf("%v.info", p.getPath())
+	f, err := os.Create(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer f.Close()
+
+	buf := p.impl.GetInfo()
+	buf.WriteTo(f)
 }
 
 func (p *partition) getPath() string {

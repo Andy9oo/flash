@@ -1,10 +1,12 @@
 package partition
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"flash/tools/readers"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 )
@@ -72,15 +74,15 @@ func (d *Dictionary) loadOffsets() {
 		return
 	}
 	defer f.Close()
-
-	numKeys := readers.ReadUint32(f)
+	r := bufio.NewReader(f)
+	numKeys := readers.ReadUint32(r)
 	for i := uint32(0); i < numKeys; i++ {
-		klen := readers.ReadUint32(f)
+		klen := readers.ReadUint32(r)
 
 		kbuf := make([]byte, klen)
-		f.Read(kbuf)
+		io.ReadFull(r, kbuf)
 
-		offset := readers.ReadUint64(f)
+		offset := readers.ReadUint64(r)
 		d.entries[string(kbuf)] = int64(offset)
 	}
 }

@@ -30,20 +30,28 @@ func NewList() *List {
 }
 
 // Decode creates a new posting list from a buffer
-func Decode(buf *bytes.Buffer) *List {
+func Decode(buf *bytes.Buffer, invalidDocs map[uint64]bool) (*List, bool) {
 	l := NewList()
 
 	numDocs := readers.ReadUint32(buf)
 	l.docs = make([]uint64, 0, numDocs)
 	for buf.Len() > 0 {
 		id := readers.ReadUint64(buf)
+
+		valid := true
+		if _, ok := invalidDocs[id]; ok {
+			valid = false
+		}
+
 		frequency := readers.ReadUint32(buf)
 		for i := uint32(0); i < frequency; i++ {
 			pos := readers.ReadUint32(buf)
-			l.Add(id, pos)
+			if valid {
+				l.Add(id, pos)
+			}
 		}
 	}
-	return l
+	return l, len(l.docs) != 0
 }
 
 // Add adds the offsets to the entry for the given doc
@@ -59,6 +67,25 @@ func (l *List) Add(docID uint64, offsets ...uint32) {
 	}
 
 	p.addOffsets(offsets)
+}
+
+// Delete removes the given doc from the postinglist
+func (l *List) Delete(docID uint64) {
+	if _, ok := l.postings[docID]; ok {
+		delete(l.postings, docID)
+		for i, doc := range l.GetDocs() {
+			if doc == docID {
+				l.docs[i] = l.docs[len(l.docs)-1]
+				l.docs[len(l.docs)-1] = 0
+				l.docs = l.docs[:len(l.docs)-1]
+				l.sorted = false
+			}
+		}
+	}
+}
+
+func (l *List) Empty() bool {
+	return len(l.postings) == 0
 }
 
 func (p *Posting) addOffsets(offsets []uint32) {

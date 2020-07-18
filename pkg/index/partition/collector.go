@@ -44,15 +44,24 @@ func (c *Collector) Add(key string, val Entry) {
 	c.memory.add(key, val)
 }
 
-// GetBuffers returns all of the buffers which use the given key
-func (c *Collector) GetBuffers(key string) []*bytes.Buffer {
+// Delete removes the given key from all partitions
+func (c *Collector) Delete(key string) {
+	for _, p := range append(c.disk, c.memory) {
+		p.delete(key)
+	}
+}
+
+// GetBuffers returns all of the buffers which use the given key and their respective implementations
+func (c *Collector) GetBuffers(key string) ([]*bytes.Buffer, []Implementation) {
 	var buffers []*bytes.Buffer
+	var impls []Implementation
 	for _, p := range append(c.disk, c.memory) {
 		if buf, ok := p.getBuffer(key); ok {
 			buffers = append(buffers, buf)
+			impls = append(impls, p.impl)
 		}
 	}
-	return buffers
+	return buffers, impls
 }
 
 // GetEntries returns all entries which match the given key
@@ -164,4 +173,7 @@ func (c *Collector) loadInfo() error {
 func (c *Collector) ClearMemory() {
 	c.dumpInfo()
 	c.memory.dump()
+	for _, p := range append(c.disk, c.memory) {
+		p.dumpInfo()
+	}
 }

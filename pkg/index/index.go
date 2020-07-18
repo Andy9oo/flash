@@ -78,15 +78,43 @@ func (i *Index) Add(path string) {
 		}
 		i.docs.Add(id, path, offset)
 	} else {
-		i.index(path)
+		i.addDir(path)
+	}
+}
+
+// Delete removes the given file from the index
+func (i *Index) Delete(path string) {
+	stat, err := os.Stat(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	var id uint64
+	if sys, ok := stat.Sys().(*syscall.Stat_t); ok {
+		id = sys.Ino
+	} else {
+		fmt.Printf("Not a syscall.Stat_t")
+		return
+	}
+
+	if !stat.IsDir() {
+		idStr := fmt.Sprint(id)
+		i.collector.Delete(idStr)
+		i.docs.Delete(idStr)
+	} else {
+		i.deleteDir(path)
 	}
 }
 
 // GetPostingReaders returns a list of posting readers for the given term
 func (i *Index) GetPostingReaders(term string) []*postinglist.Reader {
+	bufs, impls := i.collector.GetBuffers(term)
 	var readers []*postinglist.Reader
-	for _, buf := range i.collector.GetBuffers(term) {
-		readers = append(readers, postinglist.NewReader(buf))
+	for i := range bufs {
+		if ip, ok := impls[i].(*Partition); ok {
+			readers = append(readers, postinglist.NewReader(bufs[i], ip.invalidDocs))
+		}
 	}
 	return readers
 }
@@ -108,7 +136,7 @@ func (i *Index) GetDocInfo(id uint64) (path string, length uint32, ok bool) {
 	return "", 0, false
 }
 
-func (i *Index) index(dir string) {
+func (i *Index) addDir(dir string) {
 	visit := func(path string, info os.FileInfo, err error) error {
 		if info.Name()[0:1] == "." {
 			if info.IsDir() {
@@ -119,6 +147,28 @@ func (i *Index) index(dir string) {
 
 		if info.Mode().IsRegular() {
 			i.Add(path)
+		}
+
+		return nil
+	}
+
+	err := filepath.Walk(dir, visit)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (i *Index) deleteDir(dir string) {
+	visit := func(path string, info os.FileInfo, err error) error {
+		if info.Name()[0:1] == "." {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if info.Mode().IsRegular() {
+			i.Delete(path)
 		}
 
 		return nil
