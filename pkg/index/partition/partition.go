@@ -1,9 +1,12 @@
 package partition
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
+	"flash/tools/readers"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"sort"
@@ -18,9 +21,10 @@ type Implementation interface {
 	Merge([]*Reader) Entry
 	Empty() bool
 	Keys() []string
-	LoadInfo(path string)
+	LoadInfo(io.Reader)
 	GetInfo() *bytes.Buffer
 	Clear()
+	GC(*Reader, string)
 }
 
 // Entry is used as values inserted into the partitions
@@ -29,24 +33,27 @@ type Entry interface {
 }
 
 type partition struct {
-	indexpath  string
-	extension  string
-	generation int
-	impl       Implementation
-	dict       *Dictionary
-	size       int
-	limit      int
+	indexpath         string
+	extension         string
+	generation        int
+	impl              Implementation
+	dict              *Dictionary
+	size              int
+	deleted           int
+	deletionThreshold float64
+	limit             int
 }
 
 const dictionaryLimit = 1 << 20
 
 func newPartition(indexpath, extension string, generation, limit int, impl Implementation) *partition {
 	p := partition{
-		indexpath:  indexpath,
-		extension:  extension,
-		generation: generation,
-		impl:       impl,
-		limit:      limit,
+		indexpath:         indexpath,
+		extension:         extension,
+		generation:        generation,
+		impl:              impl,
+		limit:             limit,
+		deletionThreshold: float64(generation*limit) * 0.1,
 	}
 
 	return &p
@@ -94,8 +101,17 @@ func (p *partition) add(key string, val Entry) {
 
 func (p *partition) delete(key string) {
 	p.impl.Delete(key)
-	if p.size > 0 {
-		p.size--
+	p.deleted++
+	p.size--
+
+	if p.deleted > int(p.deletionThreshold) && p.generation != 0 {
+		preader := NewReader(p.getPath())
+		p.impl.GC(preader, p.getPath()+".temp")
+		preader.Close()
+		os.Rename(p.getPath()+".temp", p.getPath())
+		os.Remove(p.dict.getPath())
+		p.loadDict()
+		p.deleted = 0
 	}
 }
 
@@ -112,7 +128,6 @@ func (p *partition) dump() {
 
 	p.bytes().WriteTo(f)
 	p.impl.Clear()
-	p.size = 0
 }
 
 func (p *partition) bytes() *bytes.Buffer {
@@ -153,8 +168,17 @@ func (p *partition) loadDict() {
 }
 
 func (p *partition) loadInfo() {
-	path := fmt.Sprintf("%v.info", p.getPath())
-	p.impl.LoadInfo(path)
+	f, err := os.Open(fmt.Sprintf("%v.info", p.getPath()))
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+
+	r := bufio.NewReader(f)
+	p.deleted = int(readers.ReadUint32(r))
+	p.impl.LoadInfo(r)
+
+	fmt.Println(p)
 }
 
 func (p *partition) dumpInfo() {
@@ -166,7 +190,9 @@ func (p *partition) dumpInfo() {
 	}
 	defer f.Close()
 
-	buf := p.impl.GetInfo()
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, uint32(p.deleted))
+	binary.Write(buf, binary.LittleEndian, p.impl.GetInfo().Bytes())
 	buf.WriteTo(f)
 }
 

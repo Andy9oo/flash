@@ -52,6 +52,11 @@ func (r *Reader) NextKey() (ok bool) {
 	return true
 }
 
+// CurrentKey returns the current key of the reader
+func (r *Reader) CurrentKey() string {
+	return r.currentKey
+}
+
 // FetchDataLength reads the length of the data section for the current key
 func (r *Reader) FetchDataLength() uint32 {
 	r.dataLength = readers.ReadUint32(r.file)

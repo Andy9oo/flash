@@ -1,13 +1,13 @@
 package index
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"flash/pkg/index/partition"
 	"flash/pkg/index/postinglist"
 	"flash/tools/readers"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 )
@@ -117,14 +117,7 @@ func (p *Partition) Merge(readers []*partition.Reader) partition.Entry {
 }
 
 // LoadInfo loads in information about the partition into memory
-func (p *Partition) LoadInfo(path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer f.Close()
-	r := bufio.NewReader(f)
-
+func (p *Partition) LoadInfo(r io.Reader) {
 	num := readers.ReadUint32(r)
 	for i := uint32(0); i < num; i++ {
 		key := readers.ReadUint64(r)
@@ -140,6 +133,40 @@ func (p *Partition) GetInfo() *bytes.Buffer {
 		binary.Write(buf, binary.LittleEndian, key)
 	}
 	return buf
+}
+
+func (p *Partition) GC(reader *partition.Reader, out string) {
+	temp, err := os.Create(out)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	running := true
+	for running {
+		buf := new(bytes.Buffer)
+		reader.FetchDataLength()
+		r := postinglist.NewReader(reader.FetchData(), p.invalidDocs)
+
+		key := reader.CurrentKey()
+
+		binary.Write(buf, binary.LittleEndian, uint32(len(key)))
+		binary.Write(buf, binary.LittleEndian, []byte(key))
+		binary.Write(buf, binary.LittleEndian, r.NumDocs())
+
+		ok := r.Read()
+		for ok {
+			id, freq, offsets := r.Data()
+			binary.Write(buf, binary.LittleEndian, id)
+			binary.Write(buf, binary.LittleEndian, freq)
+			for i := 0; i < len(offsets); i++ {
+				binary.Write(buf, binary.LittleEndian, offsets[i])
+			}
+			ok = r.Read()
+		}
+		buf.WriteTo(temp)
+		running = reader.NextKey()
+	}
 }
 
 func (pe *postingEntry) Bytes() *bytes.Buffer {

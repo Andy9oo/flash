@@ -1,12 +1,12 @@
 package doclist
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"flash/pkg/index/partition"
 	"flash/tools/readers"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -113,13 +113,7 @@ func (p *Partition) Clear() {
 }
 
 // LoadInfo loads in information about the partition into memory
-func (p *Partition) LoadInfo(path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	r := bufio.NewReader(f)
+func (p *Partition) LoadInfo(r io.Reader) {
 	num := readers.ReadUint32(r)
 
 	for i := uint32(0); i < num; i++ {
@@ -136,4 +130,26 @@ func (p *Partition) GetInfo() *bytes.Buffer {
 		binary.Write(buf, binary.LittleEndian, key)
 	}
 	return buf
+}
+
+func (p *Partition) GC(reader *partition.Reader, out string) {
+	temp, err := os.Create(out)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	running := true
+	for running {
+		reader.FetchDataLength()
+		if doc, ok := p.Decode(reader.FetchData()); ok {
+			buf := new(bytes.Buffer)
+			key := reader.CurrentKey()
+			binary.Write(buf, binary.LittleEndian, uint32(len(key)))
+			binary.Write(buf, binary.LittleEndian, []byte(key))
+			binary.Write(buf, binary.LittleEndian, doc.Bytes())
+			buf.WriteTo(temp)
+		}
+		running = reader.NextKey()
+	}
 }
