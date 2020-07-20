@@ -108,6 +108,7 @@ func (p *partition) delete(key string) {
 		preader := NewReader(p.getPath())
 		p.impl.GC(preader, p.getPath()+".temp")
 		preader.Close()
+		os.Remove(p.getPath())
 		os.Rename(p.getPath()+".temp", p.getPath())
 		os.Remove(p.dict.getPath())
 		p.loadDict()

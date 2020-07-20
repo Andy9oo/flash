@@ -146,23 +146,21 @@ func (p *Partition) GC(reader *partition.Reader, out string) {
 	for running {
 		buf := new(bytes.Buffer)
 		reader.FetchDataLength()
-		r := postinglist.NewReader(reader.FetchData(), p.invalidDocs)
+		pr := postinglist.NewReader(reader.FetchData(), p.invalidDocs)
 
 		key := reader.CurrentKey()
 
 		binary.Write(buf, binary.LittleEndian, uint32(len(key)))
 		binary.Write(buf, binary.LittleEndian, []byte(key))
-		binary.Write(buf, binary.LittleEndian, r.NumDocs())
+		binary.Write(buf, binary.LittleEndian, pr.NumDocs())
 
-		ok := r.Read()
-		for ok {
-			id, freq, offsets := r.Data()
+		for pr.Read() {
+			id, freq, offsets := pr.Data()
 			binary.Write(buf, binary.LittleEndian, id)
 			binary.Write(buf, binary.LittleEndian, freq)
 			for i := 0; i < len(offsets); i++ {
 				binary.Write(buf, binary.LittleEndian, offsets[i])
 			}
-			ok = r.Read()
 		}
 		buf.WriteTo(temp)
 		running = reader.NextKey()
