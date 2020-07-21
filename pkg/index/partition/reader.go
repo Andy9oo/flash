@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"flash/tools/readers"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -41,7 +42,7 @@ func (r *Reader) NextKey() (ok bool) {
 
 	keyLen := readers.ReadUint32(r.file)
 	buf := make([]byte, keyLen)
-	n, err := r.file.Read(buf)
+	n, err := io.ReadFull(r.file, buf)
 	if n == 0 || err != nil {
 		r.done = true
 		r.file.Close()
@@ -66,7 +67,7 @@ func (r *Reader) FetchDataLength() uint32 {
 // FetchData reads in the data portion for the current key
 func (r *Reader) FetchData() *bytes.Buffer {
 	buf := make([]byte, r.dataLength)
-	r.file.Read(buf)
+	io.ReadFull(r.file, buf)
 	return bytes.NewBuffer(buf)
 }
 
@@ -89,7 +90,7 @@ func (r *Reader) findEntry(key string, start int64, end int64) (buf *bytes.Buffe
 	blockSize := end - start
 
 	block := make([]byte, blockSize)
-	r.file.Read(block)
+	io.ReadFull(r.file, block)
 
 	i := int64(0)
 	for i < blockSize {

@@ -46,8 +46,19 @@ func (c *Collector) Add(key string, val Entry) {
 
 // Delete removes the given key from all partitions
 func (c *Collector) Delete(key string) {
-	for _, p := range append(c.disk, c.memory) {
+	c.memory.delete(key)
+	d := 0
+	for i := range c.disk {
+		p := c.disk[i-d]
 		p.delete(key)
+
+		if p.size == 0 {
+			p.deleteFiles()
+			c.disk[i-d] = c.disk[len(c.disk)-1]
+			c.disk[len(c.disk)-1] = nil
+			c.disk = c.disk[:len(c.disk)-1]
+			d++
+		}
 	}
 }
 

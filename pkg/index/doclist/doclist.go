@@ -54,13 +54,18 @@ func (d *DocList) Add(id uint64, file string, length uint32) {
 
 // Delete removes a document from the doclist
 func (d *DocList) Delete(id string) {
-	for _, entry := range d.collector.GetEntries(id) {
+	bufs, impls := d.collector.GetBuffers(id)
+	for i := range bufs {
+		entry, _ := impls[i].Decode(bufs[i])
 		if doc, ok := entry.(*Document); ok {
 			d.totalLength -= int(doc.length)
-			d.totalDocs--
 		}
 	}
-	d.collector.Delete(id)
+
+	if len(bufs) > 0 {
+		d.totalDocs--
+		d.collector.Delete(id)
+	}
 }
 
 // Fetch gets the document with the given id

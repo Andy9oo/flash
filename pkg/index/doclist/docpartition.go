@@ -63,15 +63,10 @@ func (p *Partition) Get(id string) (val partition.Entry, ok bool) {
 // Decode takes a byte buffer and decodes it to a document
 func (p *Partition) Decode(buf *bytes.Buffer) (partition.Entry, bool) {
 	id := readers.ReadUint64(buf)
-
-	if _, ok := p.invalidDocs[id]; ok {
-		return nil, false
-	}
-
 	length := readers.ReadUint32(buf)
 	plen := readers.ReadUint32(buf)
 	pbuf := make([]byte, plen)
-	buf.Read(pbuf)
+	io.ReadFull(buf, pbuf)
 
 	doc := Document{
 		id:     id,
@@ -79,18 +74,26 @@ func (p *Partition) Decode(buf *bytes.Buffer) (partition.Entry, bool) {
 		length: length,
 	}
 
-	return &doc, true
+	valid := true
+	if _, ok := p.invalidDocs[id]; ok {
+		valid = false
+	}
+
+	return &doc, valid
 }
 
 // Merge will merge the partition readers, if there is more than one, this means that
 // there was a collision in the doclist
-func (p *Partition) Merge(readers []*partition.Reader) partition.Entry {
+func (p *Partition) Merge(readers []*partition.Reader, impls []partition.Implementation) partition.Entry {
 	if len(readers) != 1 {
 		log.Fatal("Collision occured in doclist")
 	}
 	readers[0].FetchDataLength()
-	doc, _ := p.Decode(readers[0].FetchData())
-	return doc
+	dp, _ := impls[0].(*Partition)
+	if doc, ok := dp.Decode(readers[0].FetchData()); ok {
+		return doc
+	}
+	return nil
 }
 
 // Empty returns true if the partition is empty
@@ -132,24 +135,30 @@ func (p *Partition) GetInfo() *bytes.Buffer {
 	return buf
 }
 
-func (p *Partition) GC(reader *partition.Reader, out string) {
+// GC Performs garbage collection on the partition
+func (p *Partition) GC(reader *partition.Reader, out string) (size int) {
 	temp, err := os.Create(out)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	defer temp.Close()
 
 	running := true
 	for running {
 		reader.FetchDataLength()
 		if doc, ok := p.Decode(reader.FetchData()); ok {
+			data := doc.Bytes()
 			buf := new(bytes.Buffer)
 			key := reader.CurrentKey()
 			binary.Write(buf, binary.LittleEndian, uint32(len(key)))
 			binary.Write(buf, binary.LittleEndian, []byte(key))
-			binary.Write(buf, binary.LittleEndian, doc.Bytes())
+			binary.Write(buf, binary.LittleEndian, uint32(data.Len()))
+			binary.Write(buf, binary.LittleEndian, data.Bytes())
 			buf.WriteTo(temp)
+			size++
 		}
 		running = reader.NextKey()
 	}
+	return size
 }

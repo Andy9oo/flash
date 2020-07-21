@@ -102,15 +102,17 @@ func (p *Partition) Clear() {
 }
 
 // Merge merges the posting lists given by the set of readers
-func (p *Partition) Merge(readers []*partition.Reader) partition.Entry {
+func (p *Partition) Merge(readers []*partition.Reader, impls []partition.Implementation) partition.Entry {
 	plist := postinglist.NewList()
 	for i := 0; i < len(readers); i++ {
-		readers[i].FetchDataLength()
-		r := postinglist.NewReader(readers[i].FetchData(), p.invalidDocs)
+		if ip, ok := impls[i].(*Partition); ok {
+			readers[i].FetchDataLength()
+			r := postinglist.NewReader(readers[i].FetchData(), ip.invalidDocs)
 
-		for r.Read() {
-			id, _, offsets := r.Data()
-			plist.Add(id, offsets...)
+			for r.Read() {
+				id, _, offsets := r.Data()
+				plist.Add(id, offsets...)
+			}
 		}
 	}
 	return plist
@@ -135,36 +137,51 @@ func (p *Partition) GetInfo() *bytes.Buffer {
 	return buf
 }
 
-func (p *Partition) GC(reader *partition.Reader, out string) {
+// GC performs garbage collection on the partition
+func (p *Partition) GC(reader *partition.Reader, out string) (size int) {
 	temp, err := os.Create(out)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	defer temp.Close()
 
 	running := true
 	for running {
-		buf := new(bytes.Buffer)
 		reader.FetchDataLength()
 		pr := postinglist.NewReader(reader.FetchData(), p.invalidDocs)
 
-		key := reader.CurrentKey()
-
-		binary.Write(buf, binary.LittleEndian, uint32(len(key)))
-		binary.Write(buf, binary.LittleEndian, []byte(key))
-		binary.Write(buf, binary.LittleEndian, pr.NumDocs())
-
+		postingBuf := new(bytes.Buffer)
+		numDocs := 0
 		for pr.Read() {
 			id, freq, offsets := pr.Data()
-			binary.Write(buf, binary.LittleEndian, id)
-			binary.Write(buf, binary.LittleEndian, freq)
+			binary.Write(postingBuf, binary.LittleEndian, id)
+			binary.Write(postingBuf, binary.LittleEndian, freq)
 			for i := 0; i < len(offsets); i++ {
-				binary.Write(buf, binary.LittleEndian, offsets[i])
+				binary.Write(postingBuf, binary.LittleEndian, offsets[i])
 			}
+
+			numDocs++
+			size += int(freq)
 		}
-		buf.WriteTo(temp)
+
+		if numDocs > 0 {
+			buf := new(bytes.Buffer)
+			key := reader.CurrentKey()
+
+			binary.Write(buf, binary.LittleEndian, uint32(len(key)))
+			binary.Write(buf, binary.LittleEndian, []byte(key))
+			binary.Write(buf, binary.LittleEndian, uint32(4+postingBuf.Len()))
+			binary.Write(buf, binary.LittleEndian, uint32(numDocs))
+
+			buf.WriteTo(temp)
+			postingBuf.WriteTo(temp)
+		}
 		running = reader.NextKey()
 	}
+
+	p.invalidDocs = make(map[uint64]bool)
+	return size
 }
 
 func (pe *postingEntry) Bytes() *bytes.Buffer {

@@ -18,13 +18,13 @@ type Implementation interface {
 	Delete(key string)
 	Get(key string) (val Entry, ok bool)
 	Decode(*bytes.Buffer) (val Entry, ok bool)
-	Merge([]*Reader) Entry
+	Merge([]*Reader, []Implementation) Entry
 	Empty() bool
 	Keys() []string
 	LoadInfo(io.Reader)
 	GetInfo() *bytes.Buffer
 	Clear()
-	GC(*Reader, string)
+	GC(*Reader, string) (size int)
 }
 
 // Entry is used as values inserted into the partitions
@@ -106,9 +106,7 @@ func (p *partition) delete(key string) {
 
 	if p.deleted > int(p.deletionThreshold) && p.generation != 0 {
 		preader := NewReader(p.getPath())
-		p.impl.GC(preader, p.getPath()+".temp")
-		preader.Close()
-		os.Remove(p.getPath())
+		p.size = p.impl.GC(preader, p.getPath()+".temp")
 		os.Rename(p.getPath()+".temp", p.getPath())
 		os.Remove(p.dict.getPath())
 		p.loadDict()
@@ -169,7 +167,7 @@ func (p *partition) loadDict() {
 }
 
 func (p *partition) loadInfo() {
-	f, err := os.Open(fmt.Sprintf("%v.info", p.getPath()))
+	f, err := os.Open(p.getInfoPath())
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -178,12 +176,10 @@ func (p *partition) loadInfo() {
 	r := bufio.NewReader(f)
 	p.deleted = int(readers.ReadUint32(r))
 	p.impl.LoadInfo(r)
-
-	fmt.Println(p)
 }
 
 func (p *partition) dumpInfo() {
-	path := fmt.Sprintf("%v.info", p.getPath())
+	path := fmt.Sprintf(p.getInfoPath())
 	f, err := os.Create(path)
 	if err != nil {
 		fmt.Println(err)
@@ -197,9 +193,19 @@ func (p *partition) dumpInfo() {
 	buf.WriteTo(f)
 }
 
+func (p *partition) deleteFiles() {
+	os.Remove(p.getPath())
+	os.Remove(p.dict.getPath())
+	os.Remove(p.getInfoPath())
+}
+
 func (p *partition) getPath() string {
 	if p.generation == 0 {
 		return fmt.Sprintf("%v/temp.%v", p.indexpath, p.extension)
 	}
 	return fmt.Sprintf("%v/part_%d.%v", p.indexpath, p.generation, p.extension)
+}
+
+func (p *partition) getInfoPath() string {
+	return fmt.Sprintf("%v.info", p.getPath())
 }
