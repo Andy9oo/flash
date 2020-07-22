@@ -84,6 +84,7 @@ func (l *List) Delete(docID uint64) {
 	}
 }
 
+// Empty returns true if the posting list contains no postings
 func (l *List) Empty() bool {
 	return len(l.postings) == 0
 }
