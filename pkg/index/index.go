@@ -69,8 +69,11 @@ func (i *Index) Add(path string) {
 	}
 
 	if !stat.IsDir() {
-		textChannel := importer.GetTextChannel(path)
+		if _, ok := i.docs.Fetch(id); ok {
+			return
+		}
 
+		textChannel := importer.GetTextChannel(path)
 		var offset uint32
 		for term := range textChannel {
 			i.collector.Add(term, &postingEntry{id, offset})
