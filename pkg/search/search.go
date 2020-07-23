@@ -132,7 +132,7 @@ func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[strin
 // Score returns the score for a doc using the BM25 ranking function
 func (e *Engine) Score(doc uint64, numDocs, frequency uint32, k float64, b float64) float64 {
 	var docLength uint32
-	lavg := float64(e.info.TotalLength) / float64(e.info.NumDocs)
+	lavg := e.info.AvgLength
 	N := float64(e.info.NumDocs)
 
 	if len, ok := e.seenDocs[doc]; ok {

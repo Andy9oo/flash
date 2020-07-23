@@ -12,10 +12,10 @@ import (
 
 // DocList type
 type DocList struct {
-	dir         string
-	collector   *partition.Collector
-	totalDocs   uint32
-	totalLength int
+	dir       string
+	collector *partition.Collector
+	totalDocs uint32
+	avgLength float64
 }
 
 // NewList creates a new doclist
@@ -48,21 +48,23 @@ func (d *DocList) Add(id uint64, file string, length uint32) {
 		length: length,
 	}
 	d.collector.Add(fmt.Sprint(doc.id), doc)
-	d.totalLength += int(length)
+	d.addLength(int(length))
 	d.totalDocs++
 }
 
 // Delete removes a document from the doclist
 func (d *DocList) Delete(id string) {
 	bufs, impls := d.collector.GetBuffers(id)
+	totalLen := 0
 	for i := range bufs {
 		entry, _ := impls[i].Decode(bufs[i])
 		if doc, ok := entry.(*Document); ok {
-			d.totalLength -= int(doc.length)
+			totalLen += int(doc.length)
 		}
 	}
 
 	if len(bufs) > 0 {
+		d.removeLength(totalLen)
 		d.totalDocs--
 		d.collector.Delete(id)
 	}
@@ -79,9 +81,17 @@ func (d *DocList) Fetch(id uint64) (doc *Document, ok bool) {
 	return nil, false
 }
 
-// TotalLength returns the total length of all the documents added to the doclist
-func (d *DocList) TotalLength() int {
-	return d.totalLength
+// AvgLength returns the average length of all the documents added to the doclist
+func (d *DocList) AvgLength() float64 {
+	return d.avgLength
+}
+
+func (d *DocList) addLength(val int) {
+	d.avgLength = d.avgLength + (float64(val)-d.avgLength)/float64(d.totalDocs+1)
+}
+
+func (d *DocList) removeLength(val int) {
+	d.avgLength = (d.avgLength*float64(d.totalDocs) - float64(val)) / float64(d.totalDocs-1)
 }
 
 // NumDocs returns the total number of documents added to the doclist
@@ -105,7 +115,7 @@ func (d *DocList) dumpStats() {
 
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, d.totalDocs)
-	binary.Write(buf, binary.LittleEndian, uint32(d.totalLength))
+	binary.Write(buf, binary.LittleEndian, d.avgLength)
 	buf.WriteTo(f)
 }
 
@@ -119,5 +129,5 @@ func (d *DocList) loadStats() {
 
 	r := bufio.NewReader(f)
 	d.totalDocs = readers.ReadUint32(r)
-	d.totalLength = int(readers.ReadUint32(r))
+	d.avgLength = readers.ReadFloat64(r)
 }

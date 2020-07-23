@@ -21,8 +21,8 @@ type Index struct {
 
 // Info contains information about an index
 type Info struct {
-	NumDocs     uint32
-	TotalLength int
+	NumDocs   uint32
+	AvgLength float64
 }
 
 // NewIndex creates a new index
@@ -125,8 +125,8 @@ func (i *Index) GetPostingReaders(term string) []*postinglist.Reader {
 // GetInfo returns information about the index
 func (i *Index) GetInfo() *Info {
 	info := Info{
-		NumDocs:     i.docs.NumDocs(),
-		TotalLength: i.docs.TotalLength(),
+		NumDocs:   i.docs.NumDocs(),
+		AvgLength: i.docs.AvgLength(),
 	}
 	return &info
 }
