@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"flash/pkg/index"
+	"flash/pkg/monitordaemon"
 	"fmt"
 	"os"
 
@@ -29,6 +30,7 @@ import (
 
 var cfgFile string
 var fileIndex *index.Index
+var daemon *monitordaemon.MonitorDaemon
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -44,11 +46,14 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fileIndex.ClearMemory()
+
+	if fileIndex != nil {
+		fileIndex.ClearMemory()
+	}
 }
 
 func init() {
-	cobra.OnInitialize(initConfig, loadIndex)
+	cobra.OnInitialize(initConfig, loadIndex, initDaemon)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flash.json)")
 }
 
@@ -66,18 +71,17 @@ func initConfig() {
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// viper.AddConfigPath(home)
-		// viper.SetConfigName(".config")
-		// viper.SetConfigType("json")
-		viper.SetConfigFile(home + "/.flash/config.json")
+		viper.SetConfigFile(home + "/.flash.json")
 	}
 
 	viper.AutomaticEnv()
 	viper.ReadInConfig()
-	fmt.Println(viper.AllSettings())
 }
 
 func loadIndex() {
 	fileIndex = index.Load(viper.GetString("indexpath"))
 }
 
+func initDaemon() {
+	daemon = monitordaemon.Init(viper.GetStringSlice("dirs"))
+}

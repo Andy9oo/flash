@@ -17,9 +17,9 @@ type MonitorDaemon struct {
 	watcher *fsnotify.Watcher
 }
 
-// Get returns the monitor
-func Get() *MonitorDaemon {
-	d, err := daemon.New("flaskmonitor", "flaskmonitor watches for file changes")
+// Init initializes and returns the monitor
+func Init(dirs []string) *MonitorDaemon {
+	d, err := daemon.New("flashmonitor", "flashmonitor watches for file changes", daemon.SystemDaemon)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		os.Exit(1)
@@ -28,6 +28,11 @@ func Get() *MonitorDaemon {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	for _, d := range dirs {
+		watcher.Add(d)
+	}
+
 	return &MonitorDaemon{daemon: d, watcher: watcher}
 }
 
@@ -67,10 +72,20 @@ func (d *MonitorDaemon) Watch() {
 				if !ok {
 					return
 				}
-				log.Println("event:", event)
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					log.Println("modified file:", event.Name)
+
+				switch event.Op {
+				case fsnotify.Create:
+					fmt.Println(event.Name, "Created")
+				case fsnotify.Write:
+					fmt.Println(event.Name, "Modified")
+				case fsnotify.Remove:
+					fallthrough
+				case fsnotify.Rename:
+					fmt.Println(event.Name, "DELETE")
+				default:
+					fmt.Println(event)
 				}
+
 			case err, ok := <-d.watcher.Errors:
 				if !ok {
 					return
@@ -83,9 +98,9 @@ func (d *MonitorDaemon) Watch() {
 	fmt.Println("Got signal:", killSignal)
 }
 
-// Add adds the given file watcher
-func (d *MonitorDaemon) Add(file string) {
-	err := d.watcher.Add(file)
+// Add adds the given directory to the watcher
+func (d *MonitorDaemon) Add(dir string) {
+	err := d.watcher.Add(dir)
 	if err != nil {
 		log.Fatal(err)
 	}

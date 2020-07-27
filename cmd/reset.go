@@ -17,7 +17,11 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
+	"fmt"
+	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -29,7 +33,21 @@ var resetCmd = &cobra.Command{
 	Short: "Removes all files from the index",
 	Run: func(cmd *cobra.Command, args []string) {
 		indexpath := viper.GetString("indexpath")
-		os.RemoveAll(indexpath)
+		reader := bufio.NewReader(os.Stdin)
+
+		fmt.Print("Are you sure you want to reset the index? [y/n]: ")
+
+		response, err := reader.ReadString('\n')
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		response = strings.ToLower(strings.TrimSpace(response))
+
+		if response == "y" || response == "yes" {
+			fmt.Println("Resetting...")
+			os.RemoveAll(indexpath)
+		}
 	},
 }
 

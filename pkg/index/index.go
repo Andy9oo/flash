@@ -190,10 +190,8 @@ func (i *Index) ClearMemory() {
 }
 
 func (i *Index) createDir() {
-	err := os.RemoveAll(i.dir)
-	err = os.Mkdir(i.dir, 0755)
+	err := os.Mkdir(i.dir, 0755)
 	if err != nil {
 		log.Fatal("Could not create index directory")
 	}
 }
-
