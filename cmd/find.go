@@ -17,7 +17,6 @@ limitations under the License.
 package cmd
 
 import (
-	"flash/pkg/index"
 	"flash/pkg/search"
 	"fmt"
 	"time"
@@ -31,9 +30,8 @@ var findCmd = &cobra.Command{
 	Use:   "find \"<query>\"",
 	Short: "Search the index for a query",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		index := index.Load(viper.GetString("indexpath"))
-
-		engine := search.NewEngine(index)
+		fmt.Println(viper.GetStringSlice("dirs"))
+		engine := search.NewEngine(fileIndex)
 
 		n, _ := cmd.Flags().GetInt("num_results")
 		start := time.Now()
@@ -42,7 +40,7 @@ var findCmd = &cobra.Command{
 
 		fmt.Printf("Found %d results in %v\n", len(results), time.Since(start))
 		for i, result := range results {
-			path, _, _ := index.GetDocInfo(result.ID)
+			path, _, _ := fileIndex.GetDocInfo(result.ID)
 			fmt.Printf("%v. %v (%v)\n", i+1, path, result.Score)
 		}
 
@@ -55,3 +53,4 @@ func init() {
 	findCmd.Flags().IntP("num_results", "n", 10, "The number of results that will be returned")
 	rootCmd.AddCommand(findCmd)
 }
+

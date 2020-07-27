@@ -196,3 +196,4 @@ func (i *Index) createDir() {
 		log.Fatal("Could not create index directory")
 	}
 }
+

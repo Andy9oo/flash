@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"flash/pkg/index"
 	"fmt"
 	"os"
 
@@ -27,6 +28,7 @@ import (
 )
 
 var cfgFile string
+var fileIndex *index.Index
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -42,10 +44,11 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	fileIndex.ClearMemory()
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initConfig, loadIndex)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flash.json)")
 }
 
@@ -58,15 +61,23 @@ func initConfig() {
 	}
 
 	viper.SetDefault("indexpath", home+"/.flash")
+	viper.SetDefault("dirs", []string{})
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".flash")
-		viper.SetConfigType("json")
+		// viper.AddConfigPath(home)
+		// viper.SetConfigName(".config")
+		// viper.SetConfigType("json")
+		viper.SetConfigFile(home + "/.flash/config.json")
 	}
 
 	viper.AutomaticEnv()
 	viper.ReadInConfig()
+	fmt.Println(viper.AllSettings())
 }
+
+func loadIndex() {
+	fileIndex = index.Load(viper.GetString("indexpath"))
+}
+

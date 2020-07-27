@@ -17,12 +17,10 @@ limitations under the License.
 package cmd
 
 import (
-	"flash/pkg/index"
 	"log"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // deleteCmd represents the delete command
@@ -30,15 +28,12 @@ var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Deletes a file from the index",
 	Run: func(cmd *cobra.Command, args []string) {
-		index := index.Load(viper.GetString("indexpath"))
-
 		path, err := filepath.Abs(args[0])
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		index.Delete(path)
-		index.ClearMemory()
+		fileIndex.Delete(path)
 	},
 	Args: cobra.ExactArgs(1),
 }
@@ -46,3 +41,4 @@ var deleteCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(deleteCmd)
 }
+
