@@ -17,12 +17,11 @@ limitations under the License.
 package cmd
 
 import (
-	"flash/pkg/search"
 	"fmt"
-	"time"
+	"net/http"
+	"net/url"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // findCmd represents the find command
@@ -30,20 +29,25 @@ var findCmd = &cobra.Command{
 	Use:   "find \"<query>\"",
 	Short: "Search the index for a query",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println(viper.GetStringSlice("dirs"))
-		engine := search.NewEngine(fileIndex)
+		// fmt.Println(viper.GetStringSlice("dirs"))
+		// engine := search.NewEngine(fileIndex)
 
 		n, _ := cmd.Flags().GetInt("num_results")
-		start := time.Now()
+		// start := time.Now()
 
-		results := engine.Search(args[0], n)
+		// results := engine.Search(args[0], n)
 
-		fmt.Printf("Found %d results in %v\n", len(results), time.Since(start))
-		for i, result := range results {
-			path, _, _ := fileIndex.GetDocInfo(result.ID)
-			fmt.Printf("%v. %v (%v)\n", i+1, path, result.Score)
+		// fmt.Printf("Found %d results in %v\n", len(results), time.Since(start))
+		// for i, result := range results {
+		// 	path, _, _ := fileIndex.GetDocInfo(result.ID)
+		// 	fmt.Printf("%v. %v (%v)\n", i+1, path, result.Score)
+		// }
+		resp, err := http.PostForm("http://127.0.0.1:9977/search", url.Values{"num_results": {fmt.Sprint(n)}, "query": {args[0]}})
+		if err != nil {
+			return err
 		}
 
+		fmt.Println(resp)
 		return nil
 	},
 	Args: cobra.ExactArgs(1),
@@ -53,4 +57,3 @@ func init() {
 	findCmd.Flags().IntP("num_results", "n", 10, "The number of results that will be returned")
 	rootCmd.AddCommand(findCmd)
 }
-

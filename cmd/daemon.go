@@ -85,7 +85,7 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run starts the file monitor daemon",
 	Run: func(cmd *cobra.Command, args []string) {
-		daemon.Watch()
+		daemon.Run()
 	},
 }
 

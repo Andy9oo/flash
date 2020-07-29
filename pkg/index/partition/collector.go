@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 )
@@ -157,12 +158,13 @@ func (c *Collector) loadInfo() error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	reader := bufio.NewReader(f)
 	buf := make([]byte, 4)
 
 	for {
-		n, err := reader.Read(buf)
+		n, err := io.ReadFull(reader, buf)
 		if n == 0 || err != nil {
 			break
 		}

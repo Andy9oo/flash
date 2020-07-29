@@ -34,6 +34,7 @@ var deleteCmd = &cobra.Command{
 		}
 
 		fileIndex.Delete(path)
+		fileIndex.ClearMemory()
 	},
 	Args: cobra.ExactArgs(1),
 }
@@ -41,4 +42,3 @@ var deleteCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(deleteCmd)
 }
-

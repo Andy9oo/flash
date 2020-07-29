@@ -34,6 +34,7 @@ var addCmd = &cobra.Command{
 		}
 
 		fileIndex.Add(path)
+		fileIndex.ClearMemory()
 	},
 	Args: cobra.ExactArgs(1),
 }
@@ -41,4 +42,3 @@ var addCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(addCmd)
 }
-

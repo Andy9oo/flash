@@ -21,10 +21,10 @@ import (
 	"flash/pkg/monitordaemon"
 	"fmt"
 	"os"
+	"os/user"
 
 	"github.com/spf13/cobra"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
@@ -46,24 +46,26 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	if fileIndex != nil {
-		fileIndex.ClearMemory()
-	}
 }
 
 func init() {
-	cobra.OnInitialize(initConfig, loadIndex, initDaemon)
+	cobra.OnInitialize(initConfig, loadDatastructures)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flash.json)")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	home, err := homedir.Dir()
+	usr, err := user.Current()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	username := usr.Username
+	if username == "root" {
+		username = os.Getenv("SUDO_USER")
+	}
+	home := "/home/" + username
 
 	viper.SetDefault("indexpath", home+"/.flash")
 	viper.SetDefault("dirs", []string{})
@@ -78,10 +80,7 @@ func initConfig() {
 	viper.ReadInConfig()
 }
 
-func loadIndex() {
+func loadDatastructures() {
 	fileIndex = index.Load(viper.GetString("indexpath"))
-}
-
-func initDaemon() {
-	daemon = monitordaemon.Init(viper.GetStringSlice("dirs"))
+	daemon = monitordaemon.Init(viper.GetStringSlice("dirs"), fileIndex)
 }
