@@ -3,6 +3,7 @@ package doclist
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/pkg/index/partition"
 )
 
 // Document datastructure
@@ -35,4 +36,12 @@ func (d *Document) Bytes() *bytes.Buffer {
 	binary.Write(buf, binary.LittleEndian, uint32(len(d.path)))
 	binary.Write(buf, binary.LittleEndian, []byte(d.path))
 	return buf
+}
+
+// Equal returns true if the given document has the same path
+func (d *Document) Equal(val partition.Entry) bool {
+	if doc, ok := val.(*Document); ok && doc.path == d.path {
+		return true
+	}
+	return false
 }

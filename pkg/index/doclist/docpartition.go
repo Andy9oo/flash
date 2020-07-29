@@ -60,6 +60,18 @@ func (p *Partition) Get(id string) (val partition.Entry, ok bool) {
 	return nil, false
 }
 
+// GetKey returns the docID given a document only containing a path
+func (p *Partition) GetKey(val partition.Entry) (string, bool) {
+	if doc, ok := val.(*Document); ok {
+		for key, val := range p.data {
+			if val.path == doc.path {
+				return key, true
+			}
+		}
+	}
+	return "", false
+}
+
 // Decode takes a byte buffer and decodes it to a document
 func (p *Partition) Decode(buf *bytes.Buffer) (partition.Entry, bool) {
 	id := readers.ReadUint64(buf)

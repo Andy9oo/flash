@@ -77,6 +77,18 @@ func (p *Partition) Get(term string) (partition.Entry, bool) {
 	return nil, false
 }
 
+// GetKey returns the term given a posting list
+func (p *Partition) GetKey(val partition.Entry) (string, bool) {
+	if pl, ok := val.(*postinglist.List); ok {
+		for key, val := range p.data {
+			if val == pl {
+				return key, true
+			}
+		}
+	}
+	return "", false
+}
+
 // Decode returns a posting list created from the buffer
 func (p *Partition) Decode(buf *bytes.Buffer) (partition.Entry, bool) {
 	return postinglist.Decode(buf, p.invalidDocs)
@@ -189,4 +201,11 @@ func (pe *postingEntry) Bytes() *bytes.Buffer {
 	binary.Write(buf, binary.LittleEndian, pe.docID)
 	binary.Write(buf, binary.LittleEndian, pe.offset)
 	return buf
+}
+
+func (pe *postingEntry) Equal(val partition.Entry) bool {
+	if p, ok := val.(*postingEntry); ok {
+		return pe.docID == p.docID && pe.offset == p.offset
+	}
+	return false
 }

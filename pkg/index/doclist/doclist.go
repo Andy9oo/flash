@@ -70,6 +70,14 @@ func (d *DocList) Delete(id string) {
 	}
 }
 
+// GetID returns the docID given the path of a file
+func (d *DocList) GetID(path string) (string, bool) {
+	if val, ok := d.collector.GetKey(&Document{path: path}); ok {
+		return val, true
+	}
+	return "", false
+}
+
 // Fetch gets the document with the given id
 func (d *DocList) Fetch(id uint64) (doc *Document, ok bool) {
 	entries := d.collector.GetEntries(fmt.Sprint(id))

@@ -23,6 +23,7 @@ type Implementation interface {
 	Keys() []string
 	LoadInfo(io.Reader)
 	GetInfo() *bytes.Buffer
+	GetKey(Entry) (string, bool)
 	Clear()
 	GC(*Reader, string) (size int)
 }
@@ -30,6 +31,7 @@ type Implementation interface {
 // Entry is used as values inserted into the partitions
 type Entry interface {
 	Bytes() *bytes.Buffer
+	Equal(Entry) bool
 }
 
 type partition struct {

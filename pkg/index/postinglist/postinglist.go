@@ -3,6 +3,7 @@ package postinglist
 import (
 	"bytes"
 	"encoding/binary"
+	"flash/pkg/index/partition"
 	"flash/tools/readers"
 	"sort"
 )
@@ -118,4 +119,12 @@ func (l *List) Bytes() *bytes.Buffer {
 		}
 	}
 	return buf
+}
+
+// Equal returns true if the given posting lists are equal
+func (l *List) Equal(val partition.Entry) bool {
+	if list, ok := val.(*List); ok && l == list {
+		return true
+	}
+	return false
 }

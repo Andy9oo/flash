@@ -99,22 +99,15 @@ func (d *MonitorDaemon) watch() {
 
 			switch event.Op {
 			case fsnotify.Create:
-				fmt.Println("Adding", event.Name)
 				d.index.Add(event.Name)
-			case fsnotify.Write:
-				fmt.Println("Deleting & readding", event.Name)
+			case fsnotify.Write, fsnotify.Chmod:
 				d.index.Delete(event.Name)
 				d.index.Add(event.Name)
-			case fsnotify.Remove:
-				fallthrough
-			case fsnotify.Rename:
-				fmt.Println("Deleting", event.Name)
-				fmt.Println(event)
+			case fsnotify.Rename, fsnotify.Remove:
 				d.index.Delete(event.Name)
 			default:
 				fmt.Println(event)
 			}
-
 		case err, ok := <-d.watcher.Errors:
 			if !ok {
 				return
