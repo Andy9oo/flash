@@ -20,11 +20,11 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"net/rpc"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // resetCmd represents the reset command
@@ -32,21 +32,27 @@ var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Removes all files from the index",
 	Run: func(cmd *cobra.Command, args []string) {
-		indexpath := viper.GetString("indexpath")
+		// indexpath := viper.GetString("indexpath")
 		reader := bufio.NewReader(os.Stdin)
-
 		fmt.Print("Are you sure you want to reset the index? [y/n]: ")
-
 		response, err := reader.ReadString('\n')
 		if err != nil {
 			log.Fatal(err)
 		}
-
 		response = strings.ToLower(strings.TrimSpace(response))
 
 		if response == "y" || response == "yes" {
 			fmt.Println("Resetting...")
-			os.RemoveAll(indexpath)
+			client, err := rpc.Dial("tcp", "localhost:12345")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			var success bool
+			err = client.Call("Handler.Reset", response, &success)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	},
 }

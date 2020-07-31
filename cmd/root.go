@@ -49,7 +49,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig, loadDatastructures)
+	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.flash.json)")
 }
 
@@ -78,9 +78,4 @@ func initConfig() {
 
 	viper.AutomaticEnv()
 	viper.ReadInConfig()
-}
-
-func loadDatastructures() {
-	fileIndex = index.Load(viper.GetString("indexpath"))
-	daemon = monitordaemon.Init(viper.GetStringSlice("dirs"), fileIndex)
 }

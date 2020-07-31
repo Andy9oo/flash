@@ -87,7 +87,24 @@ func (i *Index) Add(path string) {
 
 // Delete removes the given file from the index
 func (i *Index) Delete(path string) {
-	if id, ok := i.docs.GetID(path); ok {
+	fmt.Println("Deleting", path)
+	if stat, err := os.Stat(path); err == nil {
+		var id uint64
+		if sys, ok := stat.Sys().(*syscall.Stat_t); ok {
+			id = sys.Ino
+		} else {
+			fmt.Printf("Not a syscall.Stat_t")
+			return
+		}
+
+		if !stat.IsDir() {
+			idStr := fmt.Sprint(id)
+			i.collector.Delete(idStr)
+			i.docs.Delete(idStr)
+		} else {
+			i.deleteDir(path)
+		}
+	} else if id, ok := i.docs.GetID(path); ok {
 		i.collector.Delete(id)
 		i.docs.Delete(id)
 	}
@@ -170,6 +187,11 @@ func (i *Index) deleteDir(dir string) {
 func (i *Index) ClearMemory() {
 	i.collector.ClearMemory()
 	i.docs.ClearMemory()
+}
+
+// GetPath returns the path of the index
+func (i *Index) GetPath() string {
+	return i.dir
 }
 
 func (i *Index) createDir() {

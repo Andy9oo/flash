@@ -2,14 +2,12 @@ package monitordaemon
 
 import (
 	"flash/pkg/index"
-	"flash/pkg/search"
 	"fmt"
 	"log"
-	"net/http"
+	"net"
+	"net/rpc"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
@@ -22,27 +20,19 @@ const port = ":9977"
 // MonitorDaemon has embedded daemon
 type MonitorDaemon struct {
 	daemon  daemon.Daemon
-	watcher *fsnotify.Watcher
+	watcher *watcher
 	index   *index.Index
+	dirs    []string
 }
 
 // Init initializes and returns the monitor
-func Init(dirs []string, index *index.Index) *MonitorDaemon {
+func Init() *MonitorDaemon {
 	d, err := daemon.New("flashmonitor", "flashmonitor watches for file changes", daemon.SystemDaemon)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		os.Exit(1)
 	}
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, d := range dirs {
-		watcher.Add(d)
-	}
-
-	return &MonitorDaemon{daemon: d, watcher: watcher, index: index}
+	return &MonitorDaemon{daemon: d}
 }
 
 // Install installs the daemon
@@ -72,20 +62,21 @@ func (d *MonitorDaemon) Stop() (string, error) {
 
 // Run starts the services which the daemon controls
 func (d *MonitorDaemon) Run() {
+	d.index = index.Load(viper.GetString("indexpath"))
+	d.watcher = newWatcher()
+	dirs := viper.GetStringSlice("dirs")
+	for _, dir := range dirs {
+		d.index.Add(dir)
+		d.watcher.addDir(dir)
+	}
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 	go d.watch()
 	go d.handleRequests()
 	<-interrupt
 	d.index.ClearMemory()
-}
-
-// Add adds the given directory to the watcher
-func (d *MonitorDaemon) Add(dir string) {
-	err := d.watcher.Add(dir)
-	if err != nil {
-		log.Fatal(err)
-	}
+	viper.WriteConfig()
 }
 
 // watch watches for file changes in the added files
@@ -96,7 +87,6 @@ func (d *MonitorDaemon) watch() {
 			if !ok {
 				return
 			}
-
 			switch event.Op {
 			case fsnotify.Create:
 				d.index.Add(event.Name)
@@ -118,36 +108,17 @@ func (d *MonitorDaemon) watch() {
 }
 
 func (d *MonitorDaemon) handleRequests() {
-
-	handleSearch := func(w http.ResponseWriter, req *http.Request) {
-		if req.Method == "POST" {
-			if err := req.ParseForm(); err != nil {
-				fmt.Fprintf(w, "ParseForm() err: %v", err)
-				return
-			}
-
-			query := req.FormValue("query")
-			n, err := strconv.Atoi(req.FormValue("num_results"))
-			if err != nil {
-				fmt.Fprintf(w, "err: %v", err)
-				return
-			}
-
-			engine := search.NewEngine(d.index)
-			results := engine.Search(query, n)
-
-			var b strings.Builder
-			for i, result := range results {
-				path, _, _ := d.index.GetDocInfo(result.ID)
-				fmt.Fprintf(&b, "%v. %v (%v)\n", i+1, path, result.Score)
-			}
-
-			fmt.Fprint(w, b.String())
-		} else {
-			fmt.Fprintf(w, "Sorry, POST methods are supported.")
-		}
+	address, err := net.ResolveTCPAddr("tcp", "0.0.0.0:12345")
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	http.HandleFunc("/search", handleSearch)
-	http.ListenAndServe(port, nil)
+	inbound, err := net.ListenTCP("tcp", address)
+	if err != nil {
+		log.Fatal(err)
+	}
+	h := &Handler{d}
+	rpc.Register(h)
+	for {
+		rpc.Accept(inbound)
+	}
 }

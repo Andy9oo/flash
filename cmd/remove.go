@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"log"
+	"net/rpc"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -25,16 +26,24 @@ import (
 
 // deleteCmd represents the delete command
 var deleteCmd = &cobra.Command{
-	Use:   "delete",
-	Short: "Deletes a file from the index",
+	Use:   "remove",
+	Short: "Removes a file or directory from the watch list",
 	Run: func(cmd *cobra.Command, args []string) {
 		path, err := filepath.Abs(args[0])
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fileIndex.Delete(path)
-		fileIndex.ClearMemory()
+		client, err := rpc.Dial("tcp", "localhost:12345")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var success bool
+		err = client.Call("Handler.Remove", path, &success)
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 	Args: cobra.ExactArgs(1),
 }

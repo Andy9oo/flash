@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"flash/pkg/monitordaemon"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -32,6 +33,7 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts the file monitor daemon",
 	Run: func(cmd *cobra.Command, args []string) {
+		daemon := monitordaemon.Init()
 		daemon.Start()
 	},
 }
@@ -40,6 +42,7 @@ var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stops the file monitor daemon",
 	Run: func(cmd *cobra.Command, args []string) {
+		daemon := monitordaemon.Init()
 		daemon.Stop()
 	},
 }
@@ -48,6 +51,7 @@ var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Installs the file monitor daemon",
 	Run: func(cmd *cobra.Command, args []string) {
+		daemon := monitordaemon.Init()
 		_, err := daemon.Install()
 		if err != nil {
 			fmt.Println(err)
@@ -60,6 +64,7 @@ var removeCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Removes the file monitor daemon",
 	Run: func(cmd *cobra.Command, args []string) {
+		daemon := monitordaemon.Init()
 		daemon.Stop()
 		_, err := daemon.Remove()
 		if err != nil {
@@ -72,6 +77,7 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Returns the status of the file monitor daemon",
 	Run: func(cmd *cobra.Command, args []string) {
+		daemon := monitordaemon.Init()
 		status, err := daemon.Status()
 		if err != nil {
 			fmt.Println(err)
@@ -85,6 +91,7 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run starts the file monitor daemon",
 	Run: func(cmd *cobra.Command, args []string) {
+		daemon := monitordaemon.Init()
 		daemon.Run()
 	},
 }

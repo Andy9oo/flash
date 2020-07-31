@@ -17,9 +17,10 @@ limitations under the License.
 package cmd
 
 import (
-	"flash/pkg/search"
+	"flash/pkg/monitordaemon"
 	"fmt"
-	"time"
+	"log"
+	"net/rpc"
 
 	"github.com/spf13/cobra"
 )
@@ -28,21 +29,24 @@ import (
 var findCmd = &cobra.Command{
 	Use:   "find \"<query>\"",
 	Short: "Search the index for a query",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		engine := search.NewEngine(fileIndex)
-
+	Run: func(cmd *cobra.Command, args []string) {
 		n, _ := cmd.Flags().GetInt("num_results")
-		start := time.Now()
+		query := args[0]
 
-		results := engine.Search(args[0], n)
-
-		fmt.Printf("Found %d results in %v\n", len(results), time.Since(start))
-		for i, result := range results {
-			path, _, _ := fileIndex.GetDocInfo(result.ID)
-			fmt.Printf("%v. %v (%v)\n", i+1, path, result.Score)
+		client, err := rpc.Dial("tcp", "localhost:12345")
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		return nil
+		var results monitordaemon.Results
+		err = client.Call("Handler.Search", monitordaemon.Query{Str: query, N: n}, &results)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for i, path := range results.Paths {
+			fmt.Printf("%d: %v\n", i+1, path)
+		}
 	},
 	Args: cobra.ExactArgs(1),
 }

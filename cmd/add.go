@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"log"
+	"net/rpc"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -26,15 +27,23 @@ import (
 // addCmd represents the add command
 var addCmd = &cobra.Command{
 	Use:   "add",
-	Short: "Add a file or directory to the index",
+	Short: "Adds a file or directory to the watch list",
 	Run: func(cmd *cobra.Command, args []string) {
 		path, err := filepath.Abs(args[0])
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fileIndex.Add(path)
-		fileIndex.ClearMemory()
+		client, err := rpc.Dial("tcp", "localhost:12345")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var success bool
+		err = client.Call("Handler.Add", path, &success)
+		if err != nil {
+			log.Fatal(err)
+		}
 	},
 	Args: cobra.ExactArgs(1),
 }
