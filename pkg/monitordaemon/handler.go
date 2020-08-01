@@ -3,7 +3,6 @@ package monitordaemon
 import (
 	"flash/pkg/index"
 	"flash/pkg/search"
-	"fmt"
 	"os"
 
 	"github.com/spf13/viper"
@@ -59,11 +58,16 @@ func (h *Handler) Reset(confirmation string, res *bool) error {
 
 // Add adds a directory to the watcher
 func (h *Handler) Add(dir string, res *bool) error {
-	dirs := viper.Get("dirs").([]string)
+	_, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+
+	dirs := viper.GetStringSlice("dirs")
 	viper.Set("dirs", append(dirs, dir))
 
 	h.dmn.index.Add(dir)
-	err := h.dmn.watcher.addDir(dir)
+	err = h.dmn.watcher.addDir(dir)
 	if err != nil {
 		return err
 	}
@@ -72,8 +76,12 @@ func (h *Handler) Add(dir string, res *bool) error {
 
 // Remove removes a directory from the watcher
 func (h *Handler) Remove(dir string, res *bool) error {
-	fmt.Println("REMOVE")
-	dirs := viper.Get("dirs").([]string)
+	_, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+
+	dirs := viper.GetStringSlice("dirs")
 	for i := range dirs {
 		if dirs[i] == dir {
 			dirs[i] = dirs[len(dirs)-1]
@@ -85,9 +93,8 @@ func (h *Handler) Remove(dir string, res *bool) error {
 	viper.Set("dirs", append(dirs, dir))
 
 	h.dmn.index.Delete(dir)
-	err := h.dmn.watcher.removeDir(dir)
+	err = h.dmn.watcher.removeDir(dir)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 	return nil

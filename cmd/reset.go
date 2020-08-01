@@ -43,7 +43,7 @@ var resetCmd = &cobra.Command{
 
 		if response == "y" || response == "yes" {
 			fmt.Println("Resetting...")
-			client, err := rpc.Dial("tcp", "localhost:12345")
+			client, err := rpc.DialHTTP("tcp", "localhost:1234")
 			if err != nil {
 				log.Fatal(err)
 			}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"net/rpc"
 	"os"
 	"os/signal"
@@ -90,6 +91,10 @@ func (d *MonitorDaemon) watch() {
 			switch event.Op {
 			case fsnotify.Create:
 				d.index.Add(event.Name)
+				stat, err := os.Stat(event.Name)
+				if err != nil && stat.IsDir() {
+					d.watcher.addDir(event.Name)
+				}
 			case fsnotify.Write, fsnotify.Chmod:
 				d.index.Delete(event.Name)
 				d.index.Add(event.Name)
@@ -108,17 +113,20 @@ func (d *MonitorDaemon) watch() {
 }
 
 func (d *MonitorDaemon) handleRequests() {
-	address, err := net.ResolveTCPAddr("tcp", "0.0.0.0:12345")
-	if err != nil {
-		log.Fatal(err)
-	}
-	inbound, err := net.ListenTCP("tcp", address)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fmt.Println("Handling")
 	h := &Handler{d}
-	rpc.Register(h)
-	for {
-		rpc.Accept(inbound)
+	err := rpc.Register(h)
+	if err != nil {
+		fmt.Println(err)
+	}
+	rpc.HandleHTTP()
+	listener, err := net.Listen("tcp", ":1234")
+	if err != nil {
+		log.Fatal("Listen error: ", err)
+	}
+	log.Printf("Serving RPC server on port %d", 1234)
+	err = http.Serve(listener, nil)
+	if err != nil {
+		log.Fatal("Error serving: ", err)
 	}
 }

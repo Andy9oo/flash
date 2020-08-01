@@ -34,7 +34,7 @@ var deleteCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		client, err := rpc.Dial("tcp", "localhost:12345")
+		client, err := rpc.DialHTTP("tcp", "localhost:1234")
 		if err != nil {
 			log.Fatal(err)
 		}

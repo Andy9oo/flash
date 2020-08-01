@@ -33,9 +33,9 @@ var findCmd = &cobra.Command{
 		n, _ := cmd.Flags().GetInt("num_results")
 		query := args[0]
 
-		client, err := rpc.Dial("tcp", "localhost:12345")
+		client, err := rpc.DialHTTP("tcp", "localhost:1234")
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("Connection error: ", err)
 		}
 
 		var results monitordaemon.Results

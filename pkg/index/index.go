@@ -69,6 +69,7 @@ func (i *Index) Add(path string) {
 	}
 
 	if !stat.IsDir() {
+		// Don't add docs which have already been added
 		if _, ok := i.docs.Fetch(id); ok {
 			return
 		}
@@ -87,7 +88,6 @@ func (i *Index) Add(path string) {
 
 // Delete removes the given file from the index
 func (i *Index) Delete(path string) {
-	fmt.Println("Deleting", path)
 	if stat, err := os.Stat(path); err == nil {
 		var id uint64
 		if sys, ok := stat.Sys().(*syscall.Stat_t); ok {
