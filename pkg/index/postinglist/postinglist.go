@@ -121,8 +121,8 @@ func (l *List) Bytes() *bytes.Buffer {
 	return buf
 }
 
-// Equal returns true if the given posting lists are equal
-func (l *List) Equal(val partition.Entry) bool {
+// Matches returns true if the given posting lists are equal
+func (l *List) Matches(val partition.Entry) bool {
 	if list, ok := val.(*List); ok && l == list {
 		return true
 	}

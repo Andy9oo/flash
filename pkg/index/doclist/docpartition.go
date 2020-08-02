@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Partition implements the partition.Implementation interface for doclist
@@ -60,16 +61,17 @@ func (p *Partition) Get(id string) (val partition.Entry, ok bool) {
 	return nil, false
 }
 
-// GetKey returns the docID given a document only containing a path
-func (p *Partition) GetKey(val partition.Entry) (string, bool) {
+// GetKeys returns the docIDs which match the given path
+func (p *Partition) GetKeys(val partition.Entry) []string {
+	var matches []string
 	if doc, ok := val.(*Document); ok {
 		for key, val := range p.data {
-			if val.path == doc.path {
-				return key, true
+			if strings.Contains(val.path, doc.path) {
+				matches = append(matches, key)
 			}
 		}
 	}
-	return "", false
+	return matches
 }
 
 // Decode takes a byte buffer and decodes it to a document

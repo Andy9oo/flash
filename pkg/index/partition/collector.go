@@ -63,26 +63,26 @@ func (c *Collector) Delete(key string) {
 	}
 }
 
-// GetKey returns the key for the given value
-func (c *Collector) GetKey(val Entry) (string, bool) {
-	if key, ok := c.memory.impl.GetKey(val); ok {
-		return key, true
-	}
+// GetMatchingKeys returns a list of keys which match the entry
+func (c *Collector) GetMatchingKeys(val Entry) []string {
+	var matches []string
+	keys := c.memory.impl.GetKeys(val)
+	matches = append(matches, keys...)
 
 	for _, p := range c.disk {
 		r := NewReader(p.getPath())
 		for !r.done {
 			r.FetchDataLength()
 			e, ok := p.impl.Decode(r.FetchData())
-			if ok && e.Equal(val) {
-				r.Close()
-				return r.currentKey, true
+			if ok && e.Matches(val) {
+				matches = append(matches, r.currentKey)
 			}
 			r.NextKey()
 		}
 		r.Close()
 	}
-	return "", false
+
+	return matches
 }
 
 // GetBuffers returns all of the buffers which use the given key and their respective implementations

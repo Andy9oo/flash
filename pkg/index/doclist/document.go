@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"flash/pkg/index/partition"
+	"strings"
 )
 
 // Document datastructure
@@ -38,9 +39,9 @@ func (d *Document) Bytes() *bytes.Buffer {
 	return buf
 }
 
-// Equal returns true if the given document has the same path
-func (d *Document) Equal(val partition.Entry) bool {
-	if doc, ok := val.(*Document); ok && doc.path == d.path {
+// Matches returns true if the document is nested in the given dir
+func (d *Document) Matches(val partition.Entry) bool {
+	if doc, ok := val.(*Document); ok && strings.Contains(d.path, doc.path) {
 		return true
 	}
 	return false

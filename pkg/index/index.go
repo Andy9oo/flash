@@ -104,9 +104,11 @@ func (i *Index) Delete(path string) {
 		} else {
 			i.deleteDir(path)
 		}
-	} else if id, ok := i.docs.GetID(path); ok {
-		i.collector.Delete(id)
-		i.docs.Delete(id)
+	} else {
+		for _, id := range i.docs.GetIDs(path) {
+			i.collector.Delete(id)
+			i.docs.Delete(id)
+		}
 	}
 }
 

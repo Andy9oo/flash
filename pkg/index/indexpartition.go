@@ -77,16 +77,18 @@ func (p *Partition) Get(term string) (partition.Entry, bool) {
 	return nil, false
 }
 
-// GetKey returns the term given a posting list
-func (p *Partition) GetKey(val partition.Entry) (string, bool) {
+// GetKeys returns the term given a posting list
+func (p *Partition) GetKeys(val partition.Entry) []string {
+	var matches []string
 	if pl, ok := val.(*postinglist.List); ok {
 		for key, val := range p.data {
 			if val == pl {
-				return key, true
+				matches = append(matches, key)
+				return matches
 			}
 		}
 	}
-	return "", false
+	return matches
 }
 
 // Decode returns a posting list created from the buffer
@@ -203,7 +205,7 @@ func (pe *postingEntry) Bytes() *bytes.Buffer {
 	return buf
 }
 
-func (pe *postingEntry) Equal(val partition.Entry) bool {
+func (pe *postingEntry) Matches(val partition.Entry) bool {
 	if p, ok := val.(*postingEntry); ok {
 		return pe.docID == p.docID && pe.offset == p.offset
 	}

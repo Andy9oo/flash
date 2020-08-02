@@ -29,6 +29,7 @@ func (w *watcher) addDir(dir string) error {
 		return nil
 	}
 
+	w.Add(dir)
 	if err := filepath.Walk(dir, addDir); err != nil {
 		return err
 	}
@@ -44,6 +45,7 @@ func (w *watcher) removeDir(dir string) error {
 		return nil
 	}
 
+	w.Remove(dir)
 	if err := filepath.Walk(dir, removeDir); err != nil {
 		return err
 	}
