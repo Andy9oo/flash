@@ -74,6 +74,11 @@ func loadPartition(indexpath, extension string, generation, limit int, impl Impl
 	return p
 }
 
+func (p *partition) updateGeneration(gen int) {
+	p.generation = gen
+	p.deletionThreshold = float64(gen*p.limit) * 0.1
+}
+
 func (p *partition) getBuffer(key string) (*bytes.Buffer, bool) {
 	if p.generation == 0 {
 		if val, ok := p.impl.Get(key); ok {
@@ -106,6 +111,7 @@ func (p *partition) delete(key string) {
 	p.deleted++
 	p.size--
 
+	fmt.Println(p.generation, p.deletionThreshold, p.limit)
 	if p.deleted > int(p.deletionThreshold) && p.generation != 0 {
 		preader := NewReader(p.getPath())
 		p.size = p.impl.GC(preader, p.getPath()+".temp")

@@ -141,7 +141,7 @@ func (c *Collector) mergeParitions() {
 	if len(parts) == 0 {
 		oldPath := mem.getPath()
 		// Set current partition as final
-		mem.generation = 1
+		mem.updateGeneration(1)
 		os.Rename(oldPath, mem.getPath())
 		mem.loadDict()
 	} else {
