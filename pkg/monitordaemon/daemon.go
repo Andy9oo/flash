@@ -9,6 +9,7 @@ import (
 	"net/rpc"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/fsnotify/fsnotify"
@@ -23,6 +24,7 @@ type MonitorDaemon struct {
 	daemon  daemon.Daemon
 	watcher *watcher
 	index   *index.Index
+	lock    *sync.RWMutex
 	dirs    []string
 }
 
@@ -33,7 +35,7 @@ func Init() *MonitorDaemon {
 		fmt.Println("Error: ", err)
 		os.Exit(1)
 	}
-	return &MonitorDaemon{daemon: d}
+	return &MonitorDaemon{daemon: d, lock: &sync.RWMutex{}}
 }
 
 // Install installs the daemon
@@ -66,18 +68,23 @@ func (d *MonitorDaemon) Run() {
 	d.index = index.Load(viper.GetString("indexpath"))
 	d.watcher = newWatcher()
 	dirs := viper.GetStringSlice("dirs")
+
+	d.lock.Lock()
 	for _, dir := range dirs {
 		d.index.Add(dir)
 		d.watcher.addDir(dir)
 	}
+	d.lock.Unlock()
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
 	go d.watch()
 	go d.handleRequests()
 	<-interrupt
+	d.lock.Lock()
 	d.index.ClearMemory()
 	viper.WriteConfig()
+	d.lock.Unlock()
 }
 
 // watch watches for file changes in the added files
@@ -89,6 +96,7 @@ func (d *MonitorDaemon) watch() {
 				return
 			}
 			log.Println(event)
+			d.lock.Lock()
 			switch event.Op {
 			case fsnotify.Create:
 				d.index.Add(event.Name)
@@ -106,6 +114,7 @@ func (d *MonitorDaemon) watch() {
 			default:
 				fmt.Println(event)
 			}
+			d.lock.Unlock()
 		case err, ok := <-d.watcher.Errors:
 			if !ok {
 				return

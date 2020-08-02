@@ -28,19 +28,21 @@ type Results struct {
 // Search searches the index for a query
 func (h *Handler) Search(q *Query, res *Results) error {
 	engine := search.NewEngine(h.dmn.index)
-	results := engine.Search(q.Str, q.N)
 
+	h.dmn.lock.RLock()
+	results := engine.Search(q.Str, q.N)
 	for _, val := range results {
 		path, _, _ := h.dmn.index.GetDocInfo(val.ID)
 		res.Paths = append(res.Paths, path)
 		res.Scores = append(res.Scores, val.Score)
 	}
-
+	h.dmn.lock.RUnlock()
 	return nil
 }
 
 // Reset resets the index, and removes all directories from the watcher
 func (h *Handler) Reset(confirmation string, res *bool) error {
+	h.dmn.lock.Lock()
 	path := h.dmn.index.GetPath()
 	err := os.RemoveAll(path)
 	if err != nil {
@@ -53,6 +55,7 @@ func (h *Handler) Reset(confirmation string, res *bool) error {
 	}
 
 	viper.Set("dirs", []string{})
+	h.dmn.lock.Unlock()
 	return nil
 }
 
@@ -63,6 +66,7 @@ func (h *Handler) Add(dir string, res *bool) error {
 		return err
 	}
 
+	h.dmn.lock.Lock()
 	dirs := viper.GetStringSlice("dirs")
 	viper.Set("dirs", append(dirs, dir))
 
@@ -71,6 +75,7 @@ func (h *Handler) Add(dir string, res *bool) error {
 	if err != nil {
 		return err
 	}
+	h.dmn.lock.Unlock()
 	return nil
 }
 
@@ -81,6 +86,7 @@ func (h *Handler) Remove(dir string, res *bool) error {
 		return err
 	}
 
+	h.dmn.lock.Lock()
 	dirs := viper.GetStringSlice("dirs")
 	for i := range dirs {
 		if dirs[i] == dir {
@@ -97,5 +103,6 @@ func (h *Handler) Remove(dir string, res *bool) error {
 	if err != nil {
 		return err
 	}
+	h.dmn.lock.Unlock()
 	return nil
 }
