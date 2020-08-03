@@ -3,8 +3,7 @@ package doclist
 import (
 	"bytes"
 	"encoding/binary"
-	"flash/pkg/index/partition"
-	"strings"
+	"fmt"
 )
 
 // Document datastructure
@@ -12,6 +11,11 @@ type Document struct {
 	id     uint64
 	path   string
 	length uint32
+}
+
+// ID datastructure
+type ID struct {
+	uint64
 }
 
 // ID returns the documents id
@@ -39,10 +43,13 @@ func (d *Document) Bytes() *bytes.Buffer {
 	return buf
 }
 
-// Matches returns true if the document is nested in the given dir
-func (d *Document) Matches(val partition.Entry) bool {
-	if doc, ok := val.(*Document); ok && strings.Contains(d.path, doc.path) {
-		return true
-	}
-	return false
+// Bytes creates a byte buffer of the id
+func (id *ID) Bytes() *bytes.Buffer {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, id)
+	return buf
+}
+
+func (id *ID) String() string {
+	return fmt.Sprint(id.uint64)
 }

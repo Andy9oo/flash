@@ -54,7 +54,6 @@ func (p *Partition) Delete(doc string) {
 		panic(err)
 	}
 
-	fmt.Println("REMOVING", id)
 	// Invalidate the doc if the partition is on disk
 	if p.Empty() {
 		p.invalidDocs[id] = true
@@ -78,22 +77,8 @@ func (p *Partition) Get(term string) (partition.Entry, bool) {
 	return nil, false
 }
 
-// GetKeys returns the term given a posting list
-func (p *Partition) GetKeys(val partition.Entry) []string {
-	var matches []string
-	if pl, ok := val.(*postinglist.List); ok {
-		for key, val := range p.data {
-			if val == pl {
-				matches = append(matches, key)
-				return matches
-			}
-		}
-	}
-	return matches
-}
-
 // Decode returns a posting list created from the buffer
-func (p *Partition) Decode(buf *bytes.Buffer) (partition.Entry, bool) {
+func (p *Partition) Decode(term string, buf *bytes.Buffer) (partition.Entry, bool) {
 	return postinglist.Decode(buf, p.invalidDocs)
 }
 
@@ -204,11 +189,4 @@ func (pe *postingEntry) Bytes() *bytes.Buffer {
 	binary.Write(buf, binary.LittleEndian, pe.docID)
 	binary.Write(buf, binary.LittleEndian, pe.offset)
 	return buf
-}
-
-func (pe *postingEntry) Matches(val partition.Entry) bool {
-	if p, ok := val.(*postingEntry); ok {
-		return pe.docID == p.docID && pe.offset == p.offset
-	}
-	return false
 }

@@ -69,7 +69,7 @@ func (i *Index) Add(path string) {
 	}
 
 	if !stat.IsDir() {
-		if _, ok := i.docs.Fetch(id); ok {
+		if _, ok := i.docs.FetchPath(path); ok {
 			fmt.Println(path, "already in the index, removing and readding")
 			i.Delete(path)
 		}
@@ -88,27 +88,9 @@ func (i *Index) Add(path string) {
 
 // Delete removes the given file from the index
 func (i *Index) Delete(path string) {
-	if stat, err := os.Stat(path); err == nil {
-		var id uint64
-		if sys, ok := stat.Sys().(*syscall.Stat_t); ok {
-			id = sys.Ino
-		} else {
-			fmt.Printf("Not a syscall.Stat_t")
-			return
-		}
-
-		if !stat.IsDir() {
-			idStr := fmt.Sprint(id)
-			i.collector.Delete(idStr)
-			i.docs.Delete(idStr)
-		} else {
-			i.deleteDir(path)
-		}
-	} else {
-		for _, id := range i.docs.GetIDs(path) {
-			i.collector.Delete(id)
-			i.docs.Delete(id)
-		}
+	for _, id := range i.docs.GetIDs(path) {
+		i.collector.Delete(id.String())
+		i.docs.Delete(id.String(), path)
 	}
 }
 
@@ -135,7 +117,7 @@ func (i *Index) GetInfo() *Info {
 
 // GetDocInfo returns information about the given document
 func (i *Index) GetDocInfo(id uint64) (path string, length uint32, ok bool) {
-	if doc, ok := i.docs.Fetch(id); ok {
+	if doc, ok := i.docs.FetchID(id); ok {
 		return doc.Path(), doc.Length(), true
 	}
 	return "", 0, false

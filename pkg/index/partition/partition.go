@@ -17,13 +17,12 @@ type Implementation interface {
 	Add(key string, val Entry)
 	Delete(key string)
 	Get(key string) (val Entry, ok bool)
-	Decode(*bytes.Buffer) (val Entry, ok bool)
+	Decode(key string, buf *bytes.Buffer) (val Entry, ok bool)
 	Merge([]*Reader, []Implementation) Entry
 	Empty() bool
 	Keys() []string
 	LoadInfo(io.Reader)
 	GetInfo() *bytes.Buffer
-	GetKeys(Entry) []string
 	Clear()
 	GC(*Reader, string) (size int)
 }
@@ -31,7 +30,6 @@ type Implementation interface {
 // Entry is used as values inserted into the partitions
 type Entry interface {
 	Bytes() *bytes.Buffer
-	Matches(Entry) bool
 }
 
 type partition struct {
@@ -96,7 +94,7 @@ func (p *partition) getBuffer(key string) (*bytes.Buffer, bool) {
 
 func (p *partition) getEntry(key string) (Entry, bool) {
 	if buf, ok := p.getBuffer(key); ok {
-		return p.impl.Decode(buf)
+		return p.impl.Decode(key, buf)
 	}
 	return nil, false
 }
@@ -163,7 +161,7 @@ func (p *partition) loadData() {
 		key := reader.currentKey
 		reader.FetchDataLength()
 		buf := reader.FetchData()
-		if val, ok := p.impl.Decode(buf); ok {
+		if val, ok := p.impl.Decode(key, buf); ok {
 			p.add(key, val)
 		}
 		reader.NextKey()

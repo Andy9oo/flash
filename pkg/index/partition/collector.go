@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 )
 
 const partitionLimit = 1 << 20
@@ -63,20 +64,29 @@ func (c *Collector) Delete(key string) {
 	}
 }
 
-// GetMatchingKeys returns a list of keys which match the entry
-func (c *Collector) GetMatchingKeys(val Entry) []string {
-	var matches []string
-	keys := c.memory.impl.GetKeys(val)
-	matches = append(matches, keys...)
+// GetMatching returns a list of values which match the key
+func (c *Collector) GetMatching(key string) []Entry {
+	var matches []Entry
+	for _, k := range c.memory.impl.Keys() {
+		if strings.Contains(k, key) {
+			if val, ok := c.memory.impl.Get(k); ok {
+				matches = append(matches, val)
+			}
+		}
+	}
 
 	for _, p := range c.disk {
 		r := NewReader(p.getPath())
 		for !r.done {
 			r.FetchDataLength()
-			e, ok := p.impl.Decode(r.FetchData())
-			if ok && e.Matches(val) {
-				matches = append(matches, r.currentKey)
+			data := r.FetchData()
+
+			if strings.Contains(r.currentKey, key) {
+				if e, ok := p.impl.Decode(r.currentKey, data); ok {
+					matches = append(matches, e)
+				}
 			}
+
 			r.NextKey()
 		}
 		r.Close()

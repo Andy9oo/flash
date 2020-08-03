@@ -9,100 +9,82 @@ import (
 	"io"
 	"log"
 	"os"
-	"strconv"
 )
 
-// DocPartition implements the partition.Implementation interface for doclist
-type DocPartition struct {
-	data        map[string]*Document
-	invalidDocs map[uint64]bool
+// IDPartition implements the partition.Implementation interface for doclist
+type IDPartition struct {
+	data        map[string]*ID
+	invalidDocs map[string]bool
 }
 
-// NewDocPartition returns a new partition
-func NewDocPartition() partition.Implementation {
-	p := DocPartition{
-		data:        make(map[string]*Document),
-		invalidDocs: make(map[uint64]bool),
+// NewIDPartition returns a new partition
+func NewIDPartition() partition.Implementation {
+	p := IDPartition{
+		data:        make(map[string]*ID),
+		invalidDocs: make(map[string]bool),
 	}
 
 	return &p
 }
 
 // Add adds the document with the given id to the partition
-func (p *DocPartition) Add(id string, val partition.Entry) {
-	if doc, ok := val.(*Document); ok {
-		p.data[id] = doc
+func (p *IDPartition) Add(path string, val partition.Entry) {
+	if id, ok := val.(*ID); ok {
+		p.data[path] = id
 	}
 }
 
 // Delete removes a doc from the doclist
-func (p *DocPartition) Delete(id string) {
-	docid, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		panic(err)
-	}
-
+func (p *IDPartition) Delete(path string) {
 	// Invalidate the doc if the partition is on disk
 	if p.Empty() {
-		p.invalidDocs[docid] = true
+		p.invalidDocs[path] = true
 		return
 	}
 
 	// If partition is in memory, remove the doc
-	delete(p.data, id)
+	delete(p.data, path)
 }
 
 // Get returns the document with the given id
-func (p *DocPartition) Get(id string) (val partition.Entry, ok bool) {
-	if val, ok := p.data[id]; ok {
+func (p *IDPartition) Get(path string) (val partition.Entry, ok bool) {
+	if val, ok := p.data[path]; ok {
 		return val, true
 	}
 	return nil, false
 }
 
 // Decode takes a byte buffer and decodes it to a document
-func (p *DocPartition) Decode(id string, buf *bytes.Buffer) (partition.Entry, bool) {
-	docID := readers.ReadUint64(buf)
-	length := readers.ReadUint32(buf)
-	plen := readers.ReadUint32(buf)
-	pbuf := make([]byte, plen)
-	io.ReadFull(buf, pbuf)
-
-	doc := Document{
-		id:     docID,
-		path:   string(pbuf),
-		length: length,
+func (p *IDPartition) Decode(path string, buf *bytes.Buffer) (partition.Entry, bool) {
+	if _, ok := p.invalidDocs[path]; ok {
+		return nil, false
 	}
 
-	valid := true
-	if _, ok := p.invalidDocs[docID]; ok {
-		valid = false
-	}
-
-	return &doc, valid
+	id := readers.ReadUint64(buf)
+	return &ID{id}, true
 }
 
 // Merge will merge the partition readers, if there is more than one, this means that
 // there was a collision in the doclist
-func (p *DocPartition) Merge(readers []*partition.Reader, impls []partition.Implementation) partition.Entry {
+func (p *IDPartition) Merge(readers []*partition.Reader, impls []partition.Implementation) partition.Entry {
 	if len(readers) != 1 {
 		log.Fatal("Collision occured in doclist")
 	}
 	readers[0].FetchDataLength()
-	dp, _ := impls[0].(*DocPartition)
-	if doc, ok := dp.Decode(readers[0].CurrentKey(), readers[0].FetchData()); ok {
+	idp, _ := impls[0].(*IDPartition)
+	if doc, ok := idp.Decode(readers[0].CurrentKey(), readers[0].FetchData()); ok {
 		return doc
 	}
 	return nil
 }
 
 // Empty returns true if the partition is empty
-func (p *DocPartition) Empty() bool {
+func (p *IDPartition) Empty() bool {
 	return len(p.data) == 0
 }
 
 // Keys returns the list of doc ids
-func (p *DocPartition) Keys() []string {
+func (p *IDPartition) Keys() []string {
 	keys := make([]string, 0, len(p.data))
 	for k := range p.data {
 		keys = append(keys, k)
@@ -111,32 +93,34 @@ func (p *DocPartition) Keys() []string {
 }
 
 // Clear clears the partition
-func (p *DocPartition) Clear() {
+func (p *IDPartition) Clear() {
 	p.data = nil
 }
 
 // LoadInfo loads in information about the partition into memory
-func (p *DocPartition) LoadInfo(r io.Reader) {
+func (p *IDPartition) LoadInfo(r io.Reader) {
 	num := readers.ReadUint32(r)
-
 	for i := uint32(0); i < num; i++ {
-		key := readers.ReadUint64(r)
-		p.invalidDocs[key] = true
+		klen := readers.ReadUint32(r)
+		kbuf := make([]byte, klen)
+		io.ReadFull(r, kbuf)
+		p.invalidDocs[string(kbuf)] = true
 	}
 }
 
 // GetInfo returns a buffer containing info that must be saved about the partition
-func (p *DocPartition) GetInfo() *bytes.Buffer {
+func (p *IDPartition) GetInfo() *bytes.Buffer {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, uint32(len(p.invalidDocs)))
 	for key := range p.invalidDocs {
-		binary.Write(buf, binary.LittleEndian, key)
+		binary.Write(buf, binary.LittleEndian, uint32(len(key)))
+		binary.Write(buf, binary.LittleEndian, []byte(key))
 	}
 	return buf
 }
 
 // GC Performs garbage collection on the partition
-func (p *DocPartition) GC(reader *partition.Reader, out string) (size int) {
+func (p *IDPartition) GC(reader *partition.Reader, out string) (size int) {
 	temp, err := os.Create(out)
 	if err != nil {
 		fmt.Println(err)
@@ -147,9 +131,10 @@ func (p *DocPartition) GC(reader *partition.Reader, out string) (size int) {
 	running := true
 	for running {
 		reader.FetchDataLength()
-		if doc, ok := p.Decode(reader.CurrentKey(), reader.FetchData()); ok {
-			data := doc.Bytes()
+		if id, ok := p.Decode(reader.CurrentKey(), reader.FetchData()); ok {
+			data := id.Bytes()
 			buf := new(bytes.Buffer)
+
 			key := reader.CurrentKey()
 			binary.Write(buf, binary.LittleEndian, uint32(len(key)))
 			binary.Write(buf, binary.LittleEndian, []byte(key))
