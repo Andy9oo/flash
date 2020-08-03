@@ -69,12 +69,9 @@ func (d *MonitorDaemon) Run() {
 	d.watcher = newWatcher()
 	dirs := viper.GetStringSlice("dirs")
 
-	d.lock.Lock()
 	for _, dir := range dirs {
-		d.index.Add(dir)
 		d.watcher.addDir(dir)
 	}
-	d.lock.Unlock()
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill, syscall.SIGTERM)
@@ -99,13 +96,12 @@ func (d *MonitorDaemon) watch() {
 			d.lock.Lock()
 			switch event.Op {
 			case fsnotify.Create:
-				d.index.Add(event.Name)
 				stat, err := os.Stat(event.Name)
 				if err == nil && stat.IsDir() {
 					d.watcher.addDir(event.Name)
 				}
+				fallthrough
 			case fsnotify.Write, fsnotify.Chmod:
-				d.index.Delete(event.Name)
 				d.index.Add(event.Name)
 			case fsnotify.Rename, fsnotify.Remove:
 				if _, err := os.Stat(event.Name); err != nil {

@@ -1,6 +1,7 @@
 package monitordaemon
 
 import (
+	"errors"
 	"flash/pkg/index"
 	"flash/pkg/search"
 	"os"
@@ -68,6 +69,13 @@ func (h *Handler) Add(dir string, res *bool) error {
 
 	h.dmn.lock.Lock()
 	dirs := viper.GetStringSlice("dirs")
+
+	for _, d := range dirs {
+		if d == dir {
+			return errors.New("Directory already in index")
+		}
+	}
+
 	viper.Set("dirs", append(dirs, dir))
 
 	h.dmn.index.Add(dir)

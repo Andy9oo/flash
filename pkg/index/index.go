@@ -69,9 +69,9 @@ func (i *Index) Add(path string) {
 	}
 
 	if !stat.IsDir() {
-		// Don't add docs which have already been added
 		if _, ok := i.docs.Fetch(id); ok {
-			return
+			fmt.Println(path, "already in the index, removing and readding")
+			i.Delete(path)
 		}
 
 		textChannel := importer.GetTextChannel(path)

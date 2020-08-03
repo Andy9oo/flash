@@ -54,6 +54,7 @@ func (p *Partition) Delete(doc string) {
 		panic(err)
 	}
 
+	fmt.Println("REMOVING", id)
 	// Invalidate the doc if the partition is on disk
 	if p.Empty() {
 		p.invalidDocs[id] = true

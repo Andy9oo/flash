@@ -55,6 +55,8 @@ func (p *Partition) Delete(id string) {
 
 // Get returns the document with the given id
 func (p *Partition) Get(id string) (val partition.Entry, ok bool) {
+	fmt.Println(id)
+	fmt.Println(p.data[id])
 	if val, ok := p.data[id]; ok {
 		return val, true
 	}
