@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
 )
 
@@ -53,7 +54,7 @@ func Load(indexpath string) *Index {
 }
 
 // Add adds the given file or directory to the index
-func (i *Index) Add(path string) {
+func (i *Index) Add(path string, lock *sync.RWMutex) {
 	stat, err := os.Stat(path)
 	if err != nil {
 		fmt.Println(err)
@@ -69,6 +70,7 @@ func (i *Index) Add(path string) {
 	}
 
 	if !stat.IsDir() {
+		lock.Lock()
 		if _, ok := i.docs.FetchPath(path); ok {
 			fmt.Println(path, "already in the index, removing and readding")
 			i.Delete(path)
@@ -81,8 +83,9 @@ func (i *Index) Add(path string) {
 			offset++
 		}
 		i.docs.Add(id, path, offset)
+		lock.Unlock()
 	} else {
-		i.addDir(path)
+		i.addDir(path, lock)
 	}
 }
 
@@ -123,7 +126,7 @@ func (i *Index) GetDocInfo(id uint64) (path string, length uint32, ok bool) {
 	return "", 0, false
 }
 
-func (i *Index) addDir(dir string) {
+func (i *Index) addDir(dir string, lock *sync.RWMutex) {
 	visit := func(path string, info os.FileInfo, err error) error {
 		if info.Name()[0:1] == "." {
 			if info.IsDir() {
@@ -133,29 +136,7 @@ func (i *Index) addDir(dir string) {
 		}
 
 		if info.Mode().IsRegular() {
-			i.Add(path)
-		}
-
-		return nil
-	}
-
-	err := filepath.Walk(dir, visit)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func (i *Index) deleteDir(dir string) {
-	visit := func(path string, info os.FileInfo, err error) error {
-		if info.Name()[0:1] == "." {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if info.Mode().IsRegular() {
-			i.Delete(path)
+			i.Add(path, lock)
 		}
 
 		return nil

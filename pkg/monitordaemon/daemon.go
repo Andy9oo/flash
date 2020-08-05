@@ -93,24 +93,26 @@ func (d *MonitorDaemon) watch() {
 				return
 			}
 			log.Println(event)
-			d.lock.Lock()
 			switch event.Op {
 			case fsnotify.Create:
 				stat, err := os.Stat(event.Name)
 				if err == nil && stat.IsDir() {
+					d.lock.Lock()
 					d.watcher.addDir(event.Name)
+					d.lock.Unlock()
 				}
 				fallthrough
 			case fsnotify.Write, fsnotify.Chmod:
-				d.index.Add(event.Name)
+				d.index.Add(event.Name, d.lock)
 			case fsnotify.Rename, fsnotify.Remove:
 				if _, err := os.Stat(event.Name); err != nil {
+					d.lock.Lock()
 					d.index.Delete(event.Name)
+					d.lock.Unlock()
 				}
 			default:
 				fmt.Println(event)
 			}
-			d.lock.Unlock()
 		case err, ok := <-d.watcher.Errors:
 			if !ok {
 				return

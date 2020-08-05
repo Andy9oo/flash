@@ -44,6 +44,8 @@ func (h *Handler) Search(q *Query, res *Results) error {
 // Reset resets the index, and removes all directories from the watcher
 func (h *Handler) Reset(confirmation string, res *bool) error {
 	h.dmn.lock.Lock()
+	defer h.dmn.lock.Unlock()
+
 	path := h.dmn.index.GetPath()
 	err := os.RemoveAll(path)
 	if err != nil {
@@ -56,7 +58,6 @@ func (h *Handler) Reset(confirmation string, res *bool) error {
 	}
 
 	viper.Set("dirs", []string{})
-	h.dmn.lock.Unlock()
 	return nil
 }
 
@@ -68,6 +69,7 @@ func (h *Handler) Add(dir string, res *bool) error {
 	}
 
 	h.dmn.lock.Lock()
+	defer h.dmn.lock.Unlock()
 	dirs := viper.GetStringSlice("dirs")
 
 	for _, d := range dirs {
@@ -78,12 +80,9 @@ func (h *Handler) Add(dir string, res *bool) error {
 
 	viper.Set("dirs", append(dirs, dir))
 
-	h.dmn.index.Add(dir)
-	err = h.dmn.watcher.addDir(dir)
-	if err != nil {
-		return err
-	}
-	h.dmn.lock.Unlock()
+	h.dmn.watcher.addDir(dir)
+	go h.dmn.index.Add(dir, h.dmn.lock)
+
 	return nil
 }
 
@@ -95,6 +94,8 @@ func (h *Handler) Remove(dir string, res *bool) error {
 	}
 
 	h.dmn.lock.Lock()
+	defer h.dmn.lock.Unlock()
+
 	dirs := viper.GetStringSlice("dirs")
 	for i := range dirs {
 		if dirs[i] == dir {
@@ -104,13 +105,9 @@ func (h *Handler) Remove(dir string, res *bool) error {
 			break
 		}
 	}
-	viper.Set("dirs", append(dirs, dir))
+	viper.Set("dirs", dirs)
 
+	h.dmn.watcher.removeDir(dir)
 	h.dmn.index.Delete(dir)
-	err = h.dmn.watcher.removeDir(dir)
-	if err != nil {
-		return err
-	}
-	h.dmn.lock.Unlock()
 	return nil
 }

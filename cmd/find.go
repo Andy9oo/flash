@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -38,12 +39,14 @@ var findCmd = &cobra.Command{
 			log.Fatal("Connection error: ", err)
 		}
 
+		start := time.Now()
 		var results monitordaemon.Results
 		err = client.Call("Handler.Search", monitordaemon.Query{Str: query, N: n}, &results)
 		if err != nil {
 			log.Fatal(err)
 		}
 
+		fmt.Printf("Found %d results in %v\n", len(results.Paths), time.Since(start))
 		for i, path := range results.Paths {
 			fmt.Printf("%d: %v\n", i+1, path)
 		}

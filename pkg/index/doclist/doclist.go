@@ -98,10 +98,8 @@ func (d *DocList) FetchID(id uint64) (doc *Document, ok bool) {
 // FetchPath fetches a document using it's path
 func (d *DocList) FetchPath(path string) (doc *Document, ok bool) {
 	entries := d.idCollector.GetEntries(path)
-	fmt.Println(entries)
 	if len(entries) == 1 {
 		if id, ok := entries[0].(*ID); ok {
-			fmt.Println(id.uint64)
 			return d.FetchID(id.uint64)
 		}
 	}

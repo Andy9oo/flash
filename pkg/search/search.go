@@ -48,7 +48,7 @@ func (e *Engine) Search(query string, n int) []*Result {
 		return nil
 	}
 
-	for terms[0].ok {
+	for len(terms) > 0 && terms[0].ok {
 		doc := terms[0].nextDoc
 		score := 0.0
 		for terms[0].nextDoc == doc && terms[0].ok {
