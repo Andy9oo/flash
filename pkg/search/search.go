@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"flash/pkg/index"
 	"flash/tools/text"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -43,6 +44,8 @@ func (e *Engine) Search(query string, n int) []*Result {
 	results, terms, treaders := e.initQuery(query, n)
 	var removedTerms []term
 	var removedScore float64
+
+	fmt.Println(terms)
 
 	if len(terms) == 0 {
 		return nil
@@ -112,7 +115,12 @@ func (e *Engine) initQuery(query string, n int) (resultHeap, termHeap, map[strin
 
 	var theap termHeap
 	for i := range terms {
-		tr := newTermReader(e.index.GetPostingReaders(terms[i]))
+		prs := e.index.GetPostingReaders(terms[i])
+		if len(prs) == 0 {
+			continue
+		}
+
+		tr := newTermReader(prs)
 		treaders[terms[i]] = tr
 
 		t := term{
