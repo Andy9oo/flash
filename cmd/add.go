@@ -26,7 +26,7 @@ import (
 
 // addCmd represents the add command
 var addCmd = &cobra.Command{
-	Use:   "add",
+	Use:   "add <path>",
 	Short: "Adds a file or directory to the watch list",
 	Run: func(cmd *cobra.Command, args []string) {
 		path, err := filepath.Abs(args[0])
