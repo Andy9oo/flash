@@ -17,9 +17,13 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
+	"fmt"
 	"log"
 	"net/rpc"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -34,15 +38,26 @@ var deleteCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
-		client, err := rpc.DialHTTP("tcp", "localhost:1234")
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Printf("Are you sure you want to remove %v [y/n]: ", args[0])
+		response, err := reader.ReadString('\n')
 		if err != nil {
 			log.Fatal(err)
 		}
+		response = strings.ToLower(strings.TrimSpace(response))
 
-		var success bool
-		err = client.Call("Handler.Remove", path, &success)
-		if err != nil {
-			log.Fatal(err)
+		if response == "y" || response == "yes" {
+			fmt.Println("Removing...")
+			client, err := rpc.DialHTTP("tcp", "localhost:1234")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			var success bool
+			err = client.Call("Handler.Remove", path, &success)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	},
 	Args: cobra.ExactArgs(1),
