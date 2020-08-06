@@ -4,7 +4,6 @@ import (
 	"container/heap"
 	"flash/pkg/index"
 	"flash/tools/text"
-	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -44,8 +43,6 @@ func (e *Engine) Search(query string, n int) []*Result {
 	results, terms, treaders := e.initQuery(query, n)
 	var removedTerms []term
 	var removedScore float64
-
-	fmt.Println(terms)
 
 	if len(terms) == 0 {
 		return nil
