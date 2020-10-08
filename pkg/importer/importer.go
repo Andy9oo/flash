@@ -1,10 +1,15 @@
 package importer
 
 import (
-	"bufio"
+	"context"
 	"flash/tools/text"
 	"fmt"
+	"log"
 	"os"
+	"strings"
+
+	"github.com/google/go-tika/tika"
+	"github.com/spf13/viper"
 )
 
 // GetTextChannel Returns a channel from which the text of a file is exported
@@ -26,9 +31,15 @@ func getText(filepath string, c chan string) {
 
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanWords)
-	for scanner.Scan() {
-		c <- text.Normalize(scanner.Text())
+	tikaport := viper.GetString("tikaport")
+	client := tika.NewClient(nil, "http://localhost:"+tikaport)
+	body, err := client.Parse(context.Background(), file)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	words := strings.Split(body, " ")
+	for _, word := range words {
+		c <- text.Normalize(word)
 	}
 }

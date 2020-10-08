@@ -15,4 +15,5 @@ require (
 	github.com/takama/daemon v1.0.0
 	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/ini.v1 v1.57.0 // indirect
+	github.com/google/go-tika v0.1.21
 )

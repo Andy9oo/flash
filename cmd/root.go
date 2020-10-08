@@ -69,6 +69,13 @@ func initConfig() {
 
 	viper.SetDefault("indexpath", home+"/.flash")
 	viper.SetDefault("dirs", []string{})
+	viper.SetDefault("tikapath", home+"/tika.jar")
+	viper.SetDefault("tikaport", "9998")
+
+	_, err = os.Stat(home + "/.flash.json")
+	if err != nil && username != "" {
+		viper.WriteConfigAs(home + "/.flash.json")
+	}
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)

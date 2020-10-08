@@ -21,11 +21,12 @@ const port = ":9977"
 
 // MonitorDaemon has embedded daemon
 type MonitorDaemon struct {
-	daemon  daemon.Daemon
-	watcher *watcher
-	index   *index.Index
-	lock    *sync.RWMutex
-	dirs    []string
+	daemon     daemon.Daemon
+	watcher    *watcher
+	index      *index.Index
+	lock       *sync.RWMutex
+	tikaServer *tikaServer
+	dirs       []string
 }
 
 // Init initializes and returns the monitor
@@ -67,6 +68,10 @@ func (d *MonitorDaemon) Stop() (string, error) {
 func (d *MonitorDaemon) Run() {
 	d.index = index.Load(viper.GetString("indexpath"))
 	d.watcher = newWatcher()
+
+	d.tikaServer = getTikaServer()
+	d.tikaServer.start()
+
 	dirs := viper.GetStringSlice("dirs")
 
 	for _, dir := range dirs {
@@ -80,6 +85,7 @@ func (d *MonitorDaemon) Run() {
 	<-interrupt
 	d.lock.Lock()
 	d.index.ClearMemory()
+	d.tikaServer.stop()
 	viper.WriteConfig()
 	d.lock.Unlock()
 }
