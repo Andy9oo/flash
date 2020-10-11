@@ -38,7 +38,7 @@ func getText(filepath string, c chan string) {
 		log.Fatal(err)
 	}
 
-	words := strings.Split(body, " ")
+	words := strings.Fields(body)
 	for _, word := range words {
 		c <- text.Normalize(word)
 	}
