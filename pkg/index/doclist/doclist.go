@@ -48,6 +48,9 @@ func (d *DocList) Add(id uint64, file string, length uint32) {
 		path:   file,
 		length: length,
 	}
+
+	fmt.Println("Adding", file)
+
 	d.docCollector.Add(fmt.Sprint(doc.id), doc)
 	d.idCollector.Add(file, &ID{id})
 	d.addLength(int(length))
@@ -116,7 +119,11 @@ func (d *DocList) addLength(val int) {
 }
 
 func (d *DocList) removeLength(val int) {
-	d.avgLength = (d.avgLength*float64(d.totalDocs) - float64(val)) / float64(d.totalDocs-1)
+	if d.totalDocs-1 == 0 {
+		d.avgLength = 0
+	} else {
+		d.avgLength = (d.avgLength*float64(d.totalDocs) - float64(val)) / float64(d.totalDocs-1)
+	}
 }
 
 // NumDocs returns the total number of documents added to the doclist
