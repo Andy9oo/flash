@@ -23,6 +23,13 @@ func GetTextChannel(filepath string) chan string {
 func getText(filepath string, c chan string) {
 	defer close(c)
 
+	stat, err := os.Stat(filepath)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	name := stat.Name()
+
 	file, err := os.Open(filepath)
 	if err != nil {
 		fmt.Println("Couldn't open file:", filepath)
@@ -38,7 +45,7 @@ func getText(filepath string, c chan string) {
 		log.Fatal(err)
 	}
 
-	words := strings.Fields(body)
+	words := strings.Fields(body + " " + name)
 	for _, word := range words {
 		c <- text.Normalize(word)
 	}
