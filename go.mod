@@ -4,6 +4,8 @@ go 1.14
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/google/go-tika v0.1.21
+	github.com/gotk3/gotk3 v0.5.0
 	github.com/mitchellh/mapstructure v1.3.2 // indirect
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/spf13/afero v1.3.1 // indirect
@@ -15,5 +17,4 @@ require (
 	github.com/takama/daemon v1.0.0
 	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/ini.v1 v1.57.0 // indirect
-	github.com/google/go-tika v0.1.21
 )
