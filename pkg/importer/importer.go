@@ -4,7 +4,6 @@ import (
 	"context"
 	"flash/tools/text"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -42,7 +41,8 @@ func getText(filepath string, c chan string) {
 	client := tika.NewClient(nil, "http://localhost:"+tikaport)
 	body, err := client.Parse(context.Background(), file)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		return
 	}
 
 	words := strings.Fields(body + " " + name)
