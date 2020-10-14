@@ -21,7 +21,7 @@ func newTermReader(preaders []*postinglist.Reader) *termReader {
 
 	for i, pr := range tr.preaders {
 		if pr.Read() {
-			id, freq, _ := pr.Data()
+			id, freq := pr.Data()
 
 			if id < tr.nextDoc || i == 0 {
 				tr.nextDoc = id
@@ -51,7 +51,7 @@ func (tr *termReader) advanceDoc() {
 		}
 
 		// Advance a reader if it has the same term as the current doc
-		if id, _, _ := pr.Data(); id == currentDoc {
+		if id, _ := pr.Data(); id == currentDoc {
 			if ok := pr.Read(); !ok {
 				tr.finishedReaders[i] = true
 				tr.finished++
@@ -59,7 +59,7 @@ func (tr *termReader) advanceDoc() {
 			}
 		}
 
-		id, freq, _ := pr.Data()
+		id, freq := pr.Data()
 
 		if id < tr.nextDoc || !selected {
 			tr.nextDoc = id

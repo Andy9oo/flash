@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const partitionLimit = 1 << 20
+const partitionLimit = 1 << 24
 
 // Collector is used to abstract partitioning, automatically writing and merging partitions where needed
 type Collector struct {

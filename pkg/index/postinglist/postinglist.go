@@ -18,7 +18,6 @@ type List struct {
 type Posting struct {
 	docID     uint64
 	frequency uint32
-	offsets   []uint32
 }
 
 // NewList creates a new posting list
@@ -37,25 +36,17 @@ func Decode(buf *bytes.Buffer, invalidDocs map[uint64]bool) (*List, bool) {
 	l.docs = make([]uint64, 0, numDocs)
 	for buf.Len() > 0 {
 		id := readers.ReadUint64(buf)
-
-		valid := true
-		if _, ok := invalidDocs[id]; ok {
-			valid = false
-		}
-
 		frequency := readers.ReadUint32(buf)
-		for i := uint32(0); i < frequency; i++ {
-			pos := readers.ReadUint32(buf)
-			if valid {
-				l.Add(id, pos)
-			}
+
+		if _, invalid := invalidDocs[id]; !invalid {
+			l.Add(id, frequency)
 		}
 	}
 	return l, len(l.docs) != 0
 }
 
 // Add adds the offsets to the entry for the given doc
-func (l *List) Add(docID uint64, offsets ...uint32) {
+func (l *List) Add(docID uint64, occurences uint32) {
 	var p *Posting
 	var ok bool
 
@@ -66,7 +57,7 @@ func (l *List) Add(docID uint64, offsets ...uint32) {
 		l.sorted = false
 	}
 
-	p.addOffsets(offsets)
+	p.addOccurences(occurences)
 }
 
 // Delete removes the given doc from the postinglist
@@ -89,9 +80,8 @@ func (l *List) Empty() bool {
 	return len(l.postings) == 0
 }
 
-func (p *Posting) addOffsets(offsets []uint32) {
-	p.offsets = append(p.offsets, offsets...)
-	p.frequency += uint32(len(offsets))
+func (p *Posting) addOccurences(occurences uint32) {
+	p.frequency += occurences
 }
 
 // GetDocs returns a list of documents in the postinglist
@@ -113,9 +103,6 @@ func (l *List) Bytes() *bytes.Buffer {
 		p := l.postings[id]
 		binary.Write(buf, binary.LittleEndian, p.docID)
 		binary.Write(buf, binary.LittleEndian, p.frequency)
-		for i := 0; i < len(p.offsets); i++ {
-			binary.Write(buf, binary.LittleEndian, p.offsets[i])
-		}
 	}
 	return buf
 }

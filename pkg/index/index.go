@@ -79,7 +79,7 @@ func (i *Index) Add(path string, lock *sync.RWMutex) {
 		textChannel := importer.GetTextChannel(path)
 		var offset uint32
 		for term := range textChannel {
-			i.collector.Add(term, &postingEntry{id, offset})
+			i.collector.Add(term, &postingEntry{id})
 			offset++
 		}
 		i.docs.Add(id, path, offset)

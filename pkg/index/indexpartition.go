@@ -19,8 +19,7 @@ type Partition struct {
 }
 
 type postingEntry struct {
-	docID  uint64
-	offset uint32
+	docID uint64
 }
 
 // NewPartition creates a new indexPartition
@@ -41,7 +40,7 @@ func (p *Partition) Add(term string, entry partition.Entry) {
 		if _, ok := p.data[term]; !ok {
 			p.data[term] = postinglist.NewList()
 		}
-		p.data[term].Add(e.docID, e.offset)
+		p.data[term].Add(e.docID, 1)
 	case *postinglist.List:
 		p.data[term] = entry.(*postinglist.List)
 	}
@@ -110,8 +109,8 @@ func (p *Partition) Merge(readers []*partition.Reader, impls []partition.Impleme
 			r := postinglist.NewReader(readers[i].FetchData(), ip.invalidDocs)
 
 			for r.Read() {
-				id, _, offsets := r.Data()
-				plist.Add(id, offsets...)
+				id, freq := r.Data()
+				plist.Add(id, freq)
 			}
 		}
 	}
@@ -154,12 +153,9 @@ func (p *Partition) GC(reader *partition.Reader, out string) (size int) {
 		postingBuf := new(bytes.Buffer)
 		numDocs := 0
 		for pr.Read() {
-			id, freq, offsets := pr.Data()
+			id, freq := pr.Data()
 			binary.Write(postingBuf, binary.LittleEndian, id)
 			binary.Write(postingBuf, binary.LittleEndian, freq)
-			for i := 0; i < len(offsets); i++ {
-				binary.Write(postingBuf, binary.LittleEndian, offsets[i])
-			}
 
 			numDocs++
 			size += int(freq)
@@ -187,6 +183,5 @@ func (p *Partition) GC(reader *partition.Reader, out string) (size int) {
 func (pe *postingEntry) Bytes() *bytes.Buffer {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, pe.docID)
-	binary.Write(buf, binary.LittleEndian, pe.offset)
 	return buf
 }
