@@ -60,3 +60,11 @@ Where `[command]` is one of the commands described above.
 ## Authors
 
 * **Andrew Cullis** - Stellenbosch University   
+
+## Dependencies
+```sh
+sudo apt install libmagic-dev
+```
+```sh
+sudo apt install libgtk-3-dev libcairo2-dev libglib2.0-dev
+```

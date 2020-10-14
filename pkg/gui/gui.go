@@ -8,14 +8,16 @@ import (
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
+	"github.com/skratchdot/open-golang/open"
 )
 
 const escape uint = 65307
 
-func Display() {
-	// Initialize GTK
+// Show displays the gui
+func Show() {
+	// Init window
 	gtk.Init(nil)
-	// Create Window
+
 	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
 		log.Fatal("Unable to create window:", err)
@@ -27,55 +29,52 @@ func Display() {
 	})
 
 	win.SetDecorated(false)
-	win.SetPosition(gtk.WIN_POS_CENTER_ALWAYS)
+	win.SetPosition(gtk.WIN_POS_CENTER)
 
-	title, _ := gtk.LabelNew("Spotlight 🔍")
+	win.Connect("focus-out-event", func() {
+		win.Destroy()
+	})
 
-	col, _ := gtk.BoxNew(gtk.Orientation(gtk.ORIENTATION_VERTICAL), 2)
-	row, _ := gtk.BoxNew(gtk.Orientation(gtk.ORIENTATION_HORIZONTAL), 2)
-	results, _ := gtk.BoxNew(gtk.Orientation(gtk.ORIENTATION_VERTICAL), 2)
-
-	b, _ := gtk.ButtonNewWithLabel("Search")
-	b.SetSizeRequest(100, 50)
-
-	entry, _ := gtk.EntryNew()
-	entry.SetSizeRequest(500, 50)
+	// Create UI Elements
+	col, _ := gtk.BoxNew(gtk.Orientation(gtk.ORIENTATION_VERTICAL), 0)
+	entry, _ := gtk.SearchEntryNew()
+	results, _ := gtk.ListBoxNew()
 
 	// Add events
-	b.Connect("clicked", func() {
+	entry.Connect("search-changed", func() {
+		win.Resize(600, entry.GetAllocatedHeight())
 		handleSearch(entry, results)
 	})
 
-	entry.Connect("key_release_event", func() {
-		win.Resize(600, 50)
-		handleSearch(entry, results)
-	})
-
-	win.Connect("key_press_event", func(_ *gtk.Window, ev *gdk.Event) {
+	win.Connect("key-press-event", func(_ *gtk.Window, ev *gdk.Event) {
 		keyEvent := &gdk.EventKey{Event: ev}
+		fmt.Println(keyEvent)
 		if keyEvent.KeyVal() == escape {
 			win.Destroy()
 		}
 	})
 
-	col.Add(title)
-	col.Add(row)
+	results.SetActivateOnSingleClick(false)
+	results.Connect("row-activated", func(_ *gtk.ListBox, row *gtk.ListBoxRow) {
+		file, err := row.GetName()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		open.Run(file)
+		win.Destroy()
+	})
+
+	col.Add(entry)
 	col.Add(results)
-
-	// Add elements
-	row.Add(entry)
-	row.Add(b)
-
 	win.Add(col)
 
-	// Setup window
-	win.SetDefaultSize(600, 50)
-	win.SetResizable(false)
+	win.SetDefaultSize(600, -1)
 	win.ShowAll()
 	gtk.Main()
 }
 
-func handleSearch(entry *gtk.Entry, resultsCol *gtk.Box) {
+func handleSearch(entry *gtk.SearchEntry, resultsCol *gtk.ListBox) {
 	text, err := entry.GetText()
 	if err != nil {
 		log.Fatal(err)
@@ -85,7 +84,8 @@ func handleSearch(entry *gtk.Entry, resultsCol *gtk.Box) {
 	children.Foreach(func(child interface{}) {
 		switch child.(type) {
 		case gtk.IWidget:
-			resultsCol.Remove(child.(gtk.IWidget))
+			widget := child.(gtk.IWidget)
+			resultsCol.Remove(widget)
 		default:
 			fmt.Println("Not widget")
 		}
@@ -97,14 +97,14 @@ func handleSearch(entry *gtk.Entry, resultsCol *gtk.Box) {
 	}
 
 	var results monitordaemon.Results
-	err = client.Call("Handler.Search", monitordaemon.Query{Str: text, N: 10}, &results)
+	err = client.Call("Handler.Search", monitordaemon.Query{Str: text, N: 5}, &results)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, path := range results.Paths {
-		l, _ := gtk.LabelNew(path)
-		resultsCol.Add(l)
+		row := newResult(path)
+		resultsCol.Add(row)
 		resultsCol.ShowAll()
 	}
 }

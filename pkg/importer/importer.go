@@ -5,6 +5,7 @@ import (
 	"flash/tools/text"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/go-tika/tika"
@@ -19,19 +20,20 @@ func GetTextChannel(filepath string) chan string {
 	return channel
 }
 
-func getText(filepath string, c chan string) {
+func getText(path string, c chan string) {
 	defer close(c)
 
-	stat, err := os.Stat(filepath)
+	stat, err := os.Stat(path)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	name := stat.Name()
+	name = name[0 : len(name)-len(filepath.Ext(name))]
 
-	file, err := os.Open(filepath)
+	file, err := os.Open(path)
 	if err != nil {
-		fmt.Println("Couldn't open file:", filepath)
+		fmt.Println("Couldn't open file:", path)
 		return
 	}
 
