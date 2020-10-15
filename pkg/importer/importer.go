@@ -44,10 +44,9 @@ func getText(path string, c chan string) {
 	body, err := client.Parse(context.Background(), file)
 	if err != nil {
 		fmt.Println(err)
-		return
 	}
 
-	words := strings.Fields(body + " " + name)
+	words := strings.Fields(text.Normalize(body + " " + name))
 	for _, word := range words {
 		c <- text.Normalize(word)
 	}
