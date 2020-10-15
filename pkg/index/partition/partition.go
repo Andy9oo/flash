@@ -64,7 +64,6 @@ func loadPartition(indexpath, extension string, generation, limit int, impl Impl
 	p.loadInfo()
 
 	if generation == 0 {
-		fmt.Println("Loading data")
 		p.loadData()
 	} else {
 		p.dict = loadDictionary(p.getPath(), dictionaryLimit)
