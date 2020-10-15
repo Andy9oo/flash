@@ -3,6 +3,7 @@ package partition
 import (
 	"bufio"
 	"bytes"
+	"compress/flate"
 	"encoding/binary"
 	"flash/tools/readers"
 	"fmt"
@@ -64,6 +65,7 @@ func loadPartition(indexpath, extension string, generation, limit int, impl Impl
 	p.loadInfo()
 
 	if generation == 0 {
+		fmt.Println("Loading data")
 		p.loadData()
 	} else {
 		p.dict = loadDictionary(p.getPath(), dictionaryLimit)
@@ -143,10 +145,15 @@ func (p *partition) bytes() *bytes.Buffer {
 		data, _ := p.impl.Get(key)
 		dataBuf := data.Bytes()
 
+		compressed := new(bytes.Buffer)
+		f, _ := flate.NewWriter(compressed, flate.BestSpeed)
+		io.Copy(f, dataBuf)
+		f.Close()
+
 		binary.Write(buf, binary.LittleEndian, uint32(len(key)))
 		binary.Write(buf, binary.LittleEndian, []byte(key))
-		binary.Write(buf, binary.LittleEndian, uint32(dataBuf.Len()))
-		binary.Write(buf, binary.LittleEndian, dataBuf.Bytes())
+		binary.Write(buf, binary.LittleEndian, uint32(compressed.Len()))
+		binary.Write(buf, binary.LittleEndian, compressed.Bytes())
 	}
 
 	return buf
@@ -160,7 +167,14 @@ func (p *partition) loadData() {
 		key := reader.currentKey
 		reader.FetchDataLength()
 		buf := reader.FetchData()
-		if val, ok := p.impl.Decode(key, buf); ok {
+		f := flate.NewReader(buf)
+		decompressed := new(bytes.Buffer)
+		io.Copy(decompressed, f)
+		f.Close()
+
+		fmt.Println(decompressed.Len())
+
+		if val, ok := p.impl.Decode(key, decompressed); ok {
 			p.add(key, val)
 		}
 		reader.NextKey()
