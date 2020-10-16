@@ -48,6 +48,6 @@ func getText(path string, c chan string) {
 
 	words := strings.Fields(text.Normalize(body + " " + name))
 	for _, word := range words {
-		c <- text.Normalize(word)
+		c <- word
 	}
 }

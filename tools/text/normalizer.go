@@ -1,17 +1,23 @@
 package text
 
 import (
-	"log"
 	"regexp"
 	"strings"
+	"unicode"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
+
+var reg = regexp.MustCompile("\\p{P}+")
 
 // Normalize takes the input text and returns a normalized version of it
 func Normalize(input string) string {
-	reg, err := regexp.Compile("[^a-zA-Z0-9\\s]+")
-	if err != nil {
-		log.Fatal(err)
-	}
-	chars := reg.ReplaceAllString(input, "")
-	return strings.ToLower(chars)
+	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC, cases.Lower(language.English))
+	normalized, _, _ := transform.String(t, input)
+	normalized = reg.ReplaceAllString(input, " ")
+	return strings.ToLower(normalized)
 }

@@ -48,7 +48,7 @@ var findCmd = &cobra.Command{
 
 		fmt.Printf("Found %d results in %v\n", len(results.Paths), time.Since(start))
 		for i, path := range results.Paths {
-			fmt.Printf("%d: %v\n", i+1, path)
+			fmt.Printf("%d: %v (%v)\n", i+1, path, results.Scores[i])
 		}
 	},
 	Args: cobra.ExactArgs(1),
