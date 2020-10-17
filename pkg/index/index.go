@@ -161,7 +161,8 @@ func (i *Index) GetPath() string {
 
 func (i *Index) createDir() {
 	if _, err := os.Stat(i.dir); err != nil {
-		err = os.Mkdir(i.dir, 0755)
+		fmt.Println(i.dir)
+		err = os.MkdirAll(i.dir, 0755)
 		if err != nil {
 			log.Fatal("Could not create index directory")
 		}

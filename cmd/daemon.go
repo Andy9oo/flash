@@ -47,7 +47,7 @@ var stopCmd = &cobra.Command{
 	},
 }
 
-var installCmd = &cobra.Command{
+var installDmnCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Installs the file monitor daemon",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -100,7 +100,7 @@ func init() {
 	rootCmd.AddCommand(daemonCmd)
 	daemonCmd.AddCommand(startCmd)
 	daemonCmd.AddCommand(stopCmd)
-	daemonCmd.AddCommand(installCmd)
+	daemonCmd.AddCommand(installDmnCmd)
 	daemonCmd.AddCommand(removeCmd)
 	daemonCmd.AddCommand(statusCmd)
 	daemonCmd.AddCommand(runCmd)

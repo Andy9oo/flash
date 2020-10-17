@@ -66,21 +66,24 @@ func initConfig() {
 		username = os.Getenv("SUDO_USER")
 	}
 	home := "/home/" + username
+	flashhome := home + "/.local/share/flash/"
 
-	viper.SetDefault("indexpath", home+"/.flash")
+	viper.Set("flashhome", flashhome)
+	viper.SetDefault("indexpath", flashhome+"index")
 	viper.SetDefault("dirs", []string{})
-	viper.SetDefault("tikapath", home+"/tika.jar")
+	viper.SetDefault("tikapath", flashhome+"tika.jar")
 	viper.SetDefault("tikaport", "9998")
+	viper.SetDefault("blacklist", []string{})
 
-	_, err = os.Stat(home + "/.flash.json")
+	_, err = os.Stat(home + "/.config/flash.json")
 	if err != nil && username != "" {
-		viper.WriteConfigAs(home + "/.flash.json")
+		viper.WriteConfigAs(home + "/.config/flash.json")
 	}
 
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		viper.SetConfigFile(home + "/.flash.json")
+		viper.SetConfigFile(home + "/.config/flash.json")
 	}
 
 	viper.AutomaticEnv()
