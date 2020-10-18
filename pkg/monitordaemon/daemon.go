@@ -67,6 +67,7 @@ func (d *MonitorDaemon) Stop() (string, error) {
 // Run starts the services which the daemon controls
 func (d *MonitorDaemon) Run() {
 	d.index = index.Load(viper.GetString("indexpath"))
+
 	d.watcher = newWatcher()
 
 	d.tikaServer = getTikaServer()

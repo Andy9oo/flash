@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flash/pkg/index"
 	"flash/pkg/search"
+	"flash/tools/blacklist"
 	"os"
 
 	"github.com/spf13/viper"
@@ -24,6 +25,11 @@ type Query struct {
 type Results struct {
 	Paths  []string
 	Scores []float64
+}
+
+// BlacklistPatterns is a list of patterns
+type BlacklistPatterns struct {
+	Patterns []string
 }
 
 // Search searches the index for a query
@@ -57,7 +63,10 @@ func (h *Handler) Reset(confirmation string, res *bool) error {
 		h.dmn.watcher.Remove(d)
 	}
 
+	blacklist.Reset()
+
 	viper.Set("dirs", []string{})
+	viper.Set("blacklist", []string{})
 	return nil
 }
 
@@ -109,5 +118,45 @@ func (h *Handler) Remove(dir string, res *bool) error {
 
 	h.dmn.watcher.removeDir(dir)
 	h.dmn.index.Delete(dir)
+	return nil
+}
+
+// BlacklistAdd adds a pattern to the blacklist
+func (h *Handler) BlacklistAdd(pattern string, res *bool) error {
+	h.dmn.lock.Lock()
+	defer h.dmn.lock.Unlock()
+
+	err := blacklist.Add(pattern)
+	if err != nil {
+		return err
+	}
+
+	blacklist := viper.GetStringSlice("blacklist")
+	viper.Set("blacklist", append(blacklist, pattern))
+	return nil
+}
+
+// BlacklistRemove adds a pattern to the blacklist
+func (h *Handler) BlacklistRemove(pattern string, res *bool) error {
+	h.dmn.lock.Lock()
+	defer h.dmn.lock.Unlock()
+
+	blacklists := viper.GetStringSlice("blacklist")
+	for i := range blacklists {
+		if blacklists[i] == pattern {
+			blacklists[i] = blacklists[len(blacklists)-1]
+			blacklists[len(blacklists)-1] = ""
+			blacklists = blacklists[:len(blacklists)-1]
+			break
+		}
+	}
+	viper.Set("blacklist", blacklists)
+	blacklist.Remove(pattern)
+	return nil
+}
+
+// BlacklistGet returns a list of all blacklisted patterns
+func (h *Handler) BlacklistGet(_ string, res *BlacklistPatterns) error {
+	res.Patterns = blacklist.GetPatterns()
 	return nil
 }

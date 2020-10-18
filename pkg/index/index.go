@@ -5,12 +5,15 @@ import (
 	"flash/pkg/index/doclist"
 	"flash/pkg/index/partition"
 	"flash/pkg/index/postinglist"
+	"flash/tools/blacklist"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"syscall"
+
+	"github.com/spf13/viper"
 )
 
 // Index datastructure
@@ -33,6 +36,7 @@ func NewIndex(indexpath string) *Index {
 		docs:      doclist.NewList(indexpath),
 		collector: partition.NewCollector(indexpath, "postings", NewPartition),
 	}
+	blacklist.Add(viper.GetStringSlice("blacklist")...)
 	i.createDir()
 	return &i
 }
@@ -44,6 +48,7 @@ func Load(indexpath string) *Index {
 		collector: partition.NewCollector(indexpath, "postings", NewPartition),
 	}
 
+	blacklist.Add(viper.GetStringSlice("blacklist")...)
 	err := i.collector.Load()
 	if err != nil {
 		i = NewIndex(indexpath)
@@ -55,6 +60,10 @@ func Load(indexpath string) *Index {
 
 // Add adds the given file or directory to the index
 func (i *Index) Add(path string, lock *sync.RWMutex) {
+	if blacklist.Contains(path) {
+		return
+	}
+
 	stat, err := os.Stat(path)
 	if err != nil {
 		fmt.Println(err)
