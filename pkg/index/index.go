@@ -70,6 +70,10 @@ func (i *Index) Add(path string, lock *sync.RWMutex) {
 		return
 	}
 
+	if stat.Name()[0:1] == "." {
+		return
+	}
+
 	var id uint64
 	if sys, ok := stat.Sys().(*syscall.Stat_t); ok {
 		id = sys.Ino
