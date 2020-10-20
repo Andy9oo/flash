@@ -24,7 +24,7 @@ func newWatcher() *watcher {
 func (w *watcher) addDir(dir string) error {
 	addDir := func(path string, fi os.FileInfo, err error) error {
 		if fi.Mode().IsDir() {
-			if fi.Name()[0:1] == "." {
+			if len(fi.Name()) > 0 && fi.Name()[0:1] == "." {
 				return filepath.SkipDir
 			}
 			return w.Add(path)

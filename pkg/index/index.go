@@ -70,7 +70,7 @@ func (i *Index) Add(path string, lock *sync.RWMutex) {
 		return
 	}
 
-	if stat.Name()[0:1] == "." {
+	if len(stat.Name()) > 0 && stat.Name()[0:1] == "." {
 		return
 	}
 
@@ -141,7 +141,7 @@ func (i *Index) GetDocInfo(id uint64) (path string, length uint32, ok bool) {
 
 func (i *Index) addDir(dir string, lock *sync.RWMutex) {
 	visit := func(path string, info os.FileInfo, err error) error {
-		if info.Name()[0:1] == "." {
+		if len(info.Name()) > 0 && info.Name()[0:1] == "." {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
