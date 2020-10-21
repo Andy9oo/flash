@@ -18,3 +18,5 @@ bin
 *.index
 *.txt
 *.profile
+
+.vscode
