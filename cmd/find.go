@@ -47,6 +47,11 @@ var findCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
+		if len(results.Paths) == 0 {
+			fmt.Println("No results found")
+			return
+		}
+
 		feelingLucky, err := cmd.Flags().GetBool("ifl")
 		if err == nil && feelingLucky == true {
 			open.Run(results.Paths[0])
