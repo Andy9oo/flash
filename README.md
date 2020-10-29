@@ -67,7 +67,7 @@ flash [command]
 | blacklist | Blacklists all files which match a given regex  | `flash blacklist [command]`   |
 | daemon    | Used to control the file monitor daemon         | `flash daemon [command]`      |
 | find      | Searches the index for a given phrase           | `flash find "<search-query>"` |
-| gui       | Opens a graphical seaarch box                   | `flash gui`                   |
+| gui       | Opens a graphical search box                   | `flash gui`                   |
 | help      | Outputs help for the program                    | `flash help`                  |
 | install   | Performs all setup required for flash to run    | `flash install`               |
 | remove    | Removes a file or directory from the watch list | `flash remove <path-to dir>`  |

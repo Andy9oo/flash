@@ -23,6 +23,7 @@ import (
 	"net/rpc"
 	"time"
 
+	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/cobra"
 )
 
@@ -46,6 +47,12 @@ var findCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
+		feelingLucky, err := cmd.Flags().GetBool("ifl")
+		if err == nil && feelingLucky == true {
+			open.Run(results.Paths[0])
+			return
+		}
+
 		fmt.Printf("Found %d results in %v\n", len(results.Paths), time.Since(start))
 		for i, path := range results.Paths {
 			fmt.Printf("%d: %v (%v)\n", i+1, path, results.Scores[i])
@@ -56,5 +63,6 @@ var findCmd = &cobra.Command{
 
 func init() {
 	findCmd.Flags().IntP("num_results", "n", 10, "The number of results that will be returned")
+	findCmd.Flags().Bool("ifl", false, "Open the top result of the search immediately")
 	rootCmd.AddCommand(findCmd)
 }

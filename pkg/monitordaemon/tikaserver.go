@@ -2,6 +2,7 @@ package monitordaemon
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -19,6 +20,7 @@ func getTikaServer() *tikaServer {
 
 	_, err := os.Stat(tikapath)
 	if err != nil {
+		fmt.Println("Tika not found, downloading")
 		err := tika.DownloadServer(context.Background(), "1.21", tikapath)
 		if err != nil {
 			log.Fatal(err)

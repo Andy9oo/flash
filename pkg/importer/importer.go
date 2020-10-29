@@ -5,7 +5,6 @@ import (
 	"flash/tools/text"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/go-tika/tika"
@@ -29,8 +28,6 @@ func getText(path string, c chan string) {
 		return
 	}
 	name := stat.Name()
-	name = name[0 : len(name)-len(filepath.Ext(name))]
-
 	file, err := os.Open(path)
 	if err != nil {
 		fmt.Println("Couldn't open file:", path)
