@@ -60,6 +60,7 @@ func getIcon(path string, theme *gtk.IconTheme) *gtk.Image {
 	defer magicmime.Close()
 
 	mime, err := magicmime.TypeByFile(path)
+	fmt.Println(mime)
 	if err != nil {
 		log.Fatalf("error occured during type lookup: %v", err)
 	}
@@ -69,7 +70,12 @@ func getIcon(path string, theme *gtk.IconTheme) *gtk.Image {
 	}
 
 	path = strings.Replace(mime, "/", "-", -1)
-	pixbuf, _ := theme.LoadIcon(path, 32, gtk.ICON_LOOKUP_GENERIC_FALLBACK)
+	pixbuf, err := theme.LoadIcon(path, 32, gtk.ICON_LOOKUP_GENERIC_FALLBACK)
+	if err != nil {
+		icon, _ := gtk.ImageNewFromIconName("file", gtk.ICON_SIZE_DND)
+		return icon
+	}
+
 	icon, _ := gtk.ImageNewFromPixbuf(pixbuf)
 	return icon
 }
