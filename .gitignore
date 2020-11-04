@@ -15,8 +15,4 @@ bin
 *.out
 
 # Ignore index files
-*.index
-*.txt
-*.profile
-
 .vscode

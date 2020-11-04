@@ -35,10 +35,6 @@ func getText(path string, c chan string) error {
 	defer file.Close()
 
 	tikaport := viper.GetString("tikaport")
-	if tikaport == "" {
-		tikaport = "9998"
-	}
-
 	client := tika.NewClient(nil, "http://localhost:"+tikaport)
 	body, _ := client.Parse(context.Background(), file)
 

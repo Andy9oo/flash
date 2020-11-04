@@ -2,6 +2,7 @@ package monitordaemon
 
 import (
 	"flash/pkg/index"
+	"flash/tools/tika"
 	"fmt"
 	"log"
 	"net"
@@ -25,7 +26,7 @@ type MonitorDaemon struct {
 	watcher    *watcher
 	index      *index.Index
 	lock       *sync.RWMutex
-	tikaServer *tikaServer
+	tikaServer *tika.Server
 	dirs       []string
 }
 
@@ -70,8 +71,8 @@ func (d *MonitorDaemon) Run() {
 
 	d.watcher = newWatcher()
 
-	d.tikaServer = getTikaServer()
-	d.tikaServer.start()
+	d.tikaServer = tika.GetServer()
+	d.tikaServer.StartServer()
 
 	dirs := viper.GetStringSlice("dirs")
 
@@ -86,7 +87,7 @@ func (d *MonitorDaemon) Run() {
 	<-interrupt
 	d.lock.Lock()
 	d.index.ClearMemory()
-	d.tikaServer.stop()
+	d.tikaServer.StopServer()
 	viper.WriteConfig()
 	d.lock.Unlock()
 }
