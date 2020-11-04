@@ -29,13 +29,6 @@ func TestNewIndex(t *testing.T) {
 		t.Fail()
 	}
 }
-func TestInvalidDir(t *testing.T) {
-	setup()
-	index := NewIndex("///")
-	if _, err := os.Stat(index.GetPath()); err == nil {
-		t.Fail()
-	}
-}
 
 func TestAdd(t *testing.T) {
 	setup()
@@ -199,4 +192,53 @@ func TestBlacklistReset(t *testing.T) {
 	if len(blacklist) != 0 {
 		t.Fail()
 	}
+}
+
+func TestLoad(t *testing.T) {
+	setup()
+	indexpath := viper.GetString("indexpath")
+	index := NewIndex(indexpath)
+	index.Add("./testdata/hello_world.txt", &sync.RWMutex{})
+	index.ClearMemory()
+
+	index = Load(indexpath)
+	defer os.RemoveAll(indexpath)
+	info := index.GetInfo()
+	if info.NumDocs != 1 || info.AvgLength != 5 {
+		t.Fail()
+	}
+}
+
+func TestLoadEmpty(t *testing.T) {
+	setup()
+	indexpath := viper.GetString("indexpath")
+	index := Load(indexpath)
+
+	info := index.GetInfo()
+	fmt.Println(index)
+	if info.NumDocs != 0 {
+		t.Fail()
+	}
+}
+
+func TestGetPostingReaders(t *testing.T) {
+	setup()
+	indexpath := viper.GetString("indexpath")
+	index := NewIndex(indexpath)
+	index.Add("./testdata/hello_world.txt", &sync.RWMutex{})
+
+	readers := index.GetPostingReaders("hello")
+	readers[0].Read()
+	_, f := readers[0].Data()
+	if readers[0].NumDocs() != 1 || f != 2 {
+		t.Fail()
+	}
+}
+
+func TestGarbageCollection(t *testing.T) {
+	setup()
+	indexpath := viper.GetString("indexpath")
+	index := NewIndex(indexpath)
+
+	for i := 0; i < 
 }
