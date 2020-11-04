@@ -81,9 +81,6 @@ func (i *Index) Add(path string, lock *sync.RWMutex) {
 	var id uint64
 	if sys, ok := stat.Sys().(*syscall.Stat_t); ok {
 		id = sys.Ino
-	} else {
-		fmt.Printf("Not a syscall.Stat_t")
-		return
 	}
 
 	if !stat.IsDir() {
