@@ -2,7 +2,6 @@ package text
 
 import (
 	"regexp"
-	"strings"
 	"unicode"
 
 	"golang.org/x/text/cases"
@@ -18,6 +17,6 @@ var reg = regexp.MustCompile("\\p{P}+")
 func Normalize(input string) string {
 	t := transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC, cases.Lower(language.English))
 	normalized, _, _ := transform.String(t, input)
-	normalized = reg.ReplaceAllString(input, " ")
-	return strings.ToLower(normalized)
+	normalized = reg.ReplaceAllString(normalized, " ")
+	return normalized
 }

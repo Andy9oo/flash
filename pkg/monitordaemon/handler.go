@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flash/pkg/index"
 	"flash/pkg/search"
-	"flash/tools/blacklist"
 	"os"
 
 	"github.com/spf13/viper"
@@ -63,7 +62,7 @@ func (h *Handler) Reset(confirmation string, res *bool) error {
 		h.dmn.watcher.Remove(d)
 	}
 
-	blacklist.Reset()
+	h.dmn.index.ResetBlacklist()
 
 	viper.Set("dirs", []string{})
 	viper.Set("blacklist", []string{})
@@ -126,7 +125,7 @@ func (h *Handler) BlacklistAdd(pattern string, res *bool) error {
 	h.dmn.lock.Lock()
 	defer h.dmn.lock.Unlock()
 
-	err := blacklist.Add(pattern)
+	err := h.dmn.index.Blacklist(pattern)
 	if err != nil {
 		return err
 	}
@@ -151,12 +150,12 @@ func (h *Handler) BlacklistRemove(pattern string, res *bool) error {
 		}
 	}
 	viper.Set("blacklist", blacklists)
-	blacklist.Remove(pattern)
+	h.dmn.index.RemoveBlacklist(pattern)
 	return nil
 }
 
 // BlacklistGet returns a list of all blacklisted patterns
 func (h *Handler) BlacklistGet(_ string, res *BlacklistPatterns) error {
-	res.Patterns = blacklist.GetPatterns()
+	res.Patterns = h.dmn.index.GetBlacklist()
 	return nil
 }

@@ -21,6 +21,7 @@ type Index struct {
 	dir       string
 	docs      *doclist.DocList
 	collector *partition.Collector
+	blacklist *blacklist.Blacklist
 }
 
 // Info contains information about an index
@@ -35,8 +36,10 @@ func NewIndex(indexpath string) *Index {
 		dir:       indexpath,
 		docs:      doclist.NewList(indexpath),
 		collector: partition.NewCollector(indexpath, "postings", NewPartition),
+		blacklist: &blacklist.Blacklist{},
 	}
-	blacklist.Add(viper.GetStringSlice("blacklist")...)
+
+	i.blacklist.Add(viper.GetStringSlice("blacklist")...)
 	i.createDir()
 	return &i
 }
@@ -46,9 +49,10 @@ func Load(indexpath string) *Index {
 	i := &Index{
 		dir:       indexpath,
 		collector: partition.NewCollector(indexpath, "postings", NewPartition),
+		blacklist: &blacklist.Blacklist{},
 	}
 
-	blacklist.Add(viper.GetStringSlice("blacklist")...)
+	i.blacklist.Add(viper.GetStringSlice("blacklist")...)
 	err := i.collector.Load()
 	if err != nil {
 		i = NewIndex(indexpath)
@@ -60,7 +64,7 @@ func Load(indexpath string) *Index {
 
 // Add adds the given file or directory to the index
 func (i *Index) Add(path string, lock *sync.RWMutex) {
-	if blacklist.Contains(path) {
+	if i.blacklist.Contains(path) {
 		return
 	}
 
@@ -180,4 +184,24 @@ func (i *Index) createDir() {
 			log.Fatal("Could not create index directory")
 		}
 	}
+}
+
+// Blacklist blacklists the given pattern for the index
+func (i *Index) Blacklist(pattern string) error {
+	return i.blacklist.Add(pattern)
+}
+
+// RemoveBlacklist removes the given patern from the index
+func (i *Index) RemoveBlacklist(pattern string) {
+	i.blacklist.Remove(pattern)
+}
+
+// GetBlacklist returns the list of patterns in the blacklist
+func (i *Index) GetBlacklist() []string {
+	return i.blacklist.GetPatterns()
+}
+
+// ResetBlacklist removes all patterns from the blacklist
+func (i *Index) ResetBlacklist() {
+	i.blacklist.Reset()
 }
