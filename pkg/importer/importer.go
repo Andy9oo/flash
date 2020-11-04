@@ -3,7 +3,6 @@ package importer
 import (
 	"context"
 	"flash/tools/text"
-	"fmt"
 	"os"
 	"strings"
 
@@ -19,32 +18,34 @@ func GetTextChannel(filepath string) chan string {
 	return channel
 }
 
-func getText(path string, c chan string) {
+func getText(path string, c chan string) error {
 	defer close(c)
 
 	stat, err := os.Stat(path)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
+
 	name := stat.Name()
 	file, err := os.Open(path)
 	if err != nil {
-		fmt.Println("Couldn't open file:", path)
-		return
+		return err
 	}
 
 	defer file.Close()
 
 	tikaport := viper.GetString("tikaport")
-	client := tika.NewClient(nil, "http://localhost:"+tikaport)
-	body, err := client.Parse(context.Background(), file)
-	if err != nil {
-		fmt.Println(err)
+	if tikaport == "" {
+		tikaport = "9998"
 	}
+
+	client := tika.NewClient(nil, "http://localhost:"+tikaport)
+	body, _ := client.Parse(context.Background(), file)
 
 	words := strings.Fields(text.Normalize(body + " " + name))
 	for _, word := range words {
 		c <- word
 	}
+
+	return nil
 }
