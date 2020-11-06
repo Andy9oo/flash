@@ -74,9 +74,9 @@ func (d *MonitorDaemon) Run() {
 	d.tikaServer = tika.GetServer()
 	d.tikaServer.StartServer()
 
-	dirs := viper.GetStringSlice("dirs")
+	d.dirs = viper.GetStringSlice("dirs")
 
-	for _, dir := range dirs {
+	for _, dir := range d.dirs {
 		d.watcher.addDir(dir)
 	}
 

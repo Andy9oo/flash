@@ -1,6 +1,7 @@
 package index
 
 import (
+	"flash/tools/tika"
 	"fmt"
 	"os"
 	"sync"
@@ -21,6 +22,12 @@ func setup() {
 	viper.Set("blacklist", []string{})
 }
 
+func getServer() *tika.Server {
+	server := tika.GetServer()
+	server.StartServer()
+	return server
+}
+
 func TestNewIndex(t *testing.T) {
 	setup()
 	indexpath := viper.GetString("indexpath")
@@ -32,16 +39,23 @@ func TestNewIndex(t *testing.T) {
 
 func TestAdd(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("./testdata/hello_world.txt", &sync.RWMutex{})
 	if index.docs.NumDocs() != 1 {
 		t.Fail()
 	}
+
 }
 
 func TestSkipMissing(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("missing", &sync.RWMutex{})
@@ -52,6 +66,9 @@ func TestSkipMissing(t *testing.T) {
 
 func TestSkipHidden(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("./testdata/.hidden.txt", &sync.RWMutex{})
@@ -62,6 +79,9 @@ func TestSkipHidden(t *testing.T) {
 
 func TestSkipDuplicate(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("./testdata/hello_world.txt", &sync.RWMutex{})
@@ -73,6 +93,9 @@ func TestSkipDuplicate(t *testing.T) {
 
 func TestRecursive(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("./testdata/directory", &sync.RWMutex{})
@@ -83,6 +106,9 @@ func TestRecursive(t *testing.T) {
 
 func TestSkipHiddenRecursive(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("./testdata/directory_with_hidden", &sync.RWMutex{})
@@ -93,6 +119,9 @@ func TestSkipHiddenRecursive(t *testing.T) {
 
 func TestSkipBlacklisted(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Blacklist(".*\\.txt")
@@ -104,10 +133,14 @@ func TestSkipBlacklisted(t *testing.T) {
 
 func TestGetInfo(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("./testdata/directory", &sync.RWMutex{})
 	info := index.GetInfo()
+	fmt.Println(info)
 	if info.NumDocs != 2 || info.AvgLength != 4 {
 		t.Fail()
 	}
@@ -115,6 +148,9 @@ func TestGetInfo(t *testing.T) {
 
 func TestGetDocInfoSuccess(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	file := "./testdata/hello_world.txt"
@@ -134,6 +170,9 @@ func TestGetDocInfoSuccess(t *testing.T) {
 
 func TestGetDocInfoFail(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	file := "./testdata/hello_world.txt"
@@ -196,6 +235,9 @@ func TestBlacklistReset(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("./testdata/hello_world.txt", &sync.RWMutex{})
@@ -223,6 +265,9 @@ func TestLoadEmpty(t *testing.T) {
 
 func TestGetPostingReaders(t *testing.T) {
 	setup()
+	server := getServer()
+	defer server.StopServer()
+
 	indexpath := viper.GetString("indexpath")
 	index := NewIndex(indexpath)
 	index.Add("./testdata/hello_world.txt", &sync.RWMutex{})
@@ -235,10 +280,10 @@ func TestGetPostingReaders(t *testing.T) {
 	}
 }
 
-func TestGarbageCollection(t *testing.T) {
-	setup()
-	indexpath := viper.GetString("indexpath")
-	index := NewIndex(indexpath)
+// func TestGarbageCollection(t *testing.T) {
+// 	setup()
+// 	indexpath := viper.GetString("indexpath")
+// 	index := NewIndex(indexpath)
 
-	for i := 0; i < 
-}
+// 	for i := 0; i <
+// }

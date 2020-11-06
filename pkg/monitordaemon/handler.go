@@ -31,6 +31,11 @@ type BlacklistPatterns struct {
 	Patterns []string
 }
 
+// DirList is a list of added directories
+type DirList struct {
+	Dirs []string
+}
+
 // Search searches the index for a query
 func (h *Handler) Search(q *Query, res *Results) error {
 	engine := search.NewEngine(h.dmn.index)
@@ -157,5 +162,11 @@ func (h *Handler) BlacklistRemove(pattern string, res *bool) error {
 // BlacklistGet returns a list of all blacklisted patterns
 func (h *Handler) BlacklistGet(_ string, res *BlacklistPatterns) error {
 	res.Patterns = h.dmn.index.GetBlacklist()
+	return nil
+}
+
+// List returns all directories added to the index
+func (h *Handler) List(_ string, res *DirList) error {
+	res.Dirs = viper.GetStringSlice("dirs")
 	return nil
 }
