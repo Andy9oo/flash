@@ -74,6 +74,7 @@ func initConfig() {
 	viper.SetDefault("tikapath", flashhome+"tika.jar")
 	viper.SetDefault("tikaport", "9998")
 	viper.SetDefault("blacklist", []string{})
+	viper.SetDefault("gui_results", 5)
 
 	_, err = os.Stat(home + "/.config/flash.json")
 	if err != nil && username != "" {

@@ -9,6 +9,7 @@ import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/skratchdot/open-golang/open"
+	"github.com/spf13/viper"
 )
 
 const escape uint = 65307
@@ -97,7 +98,7 @@ func handleSearch(entry *gtk.SearchEntry, resultsCol *gtk.ListBox) {
 	}
 
 	var results monitordaemon.Results
-	err = client.Call("Handler.Search", monitordaemon.Query{Str: text, N: 5}, &results)
+	err = client.Call("Handler.Search", monitordaemon.Query{Str: text, N: viper.GetInt("gui_results")}, &results)
 	if err != nil {
 		log.Fatal(err)
 	}
