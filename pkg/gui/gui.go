@@ -13,6 +13,7 @@ import (
 )
 
 const escape uint = 65307
+const enter uint = 65293
 
 // Show displays the gui
 func Show() {
@@ -47,9 +48,18 @@ func Show() {
 		handleSearch(entry, results)
 	})
 
+	entry.Connect("key-press-event", func(_ *gtk.SearchEntry, ev *gdk.Event) {
+		keyEvent := &gdk.EventKey{Event: ev}
+		// fmt.Println(keyEvent.KeyVal())
+		if keyEvent.KeyVal() == enter {
+			win.Resize(600, entry.GetAllocatedHeight())
+			handleSearch(entry, results)
+		}
+	})
+
 	win.Connect("key-press-event", func(_ *gtk.Window, ev *gdk.Event) {
 		keyEvent := &gdk.EventKey{Event: ev}
-		fmt.Println(keyEvent)
+		// fmt.Println(keyEvent.KeyVal())
 		if keyEvent.KeyVal() == escape {
 			win.Destroy()
 		}
